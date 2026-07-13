@@ -3,6 +3,7 @@ options:
   bundleIdPrefix: com.pokernight.app
   deploymentTarget:
     iOS: "17.0"
+    watchOS: "10.0"
 targets:
   PokerNight:
     type: application
@@ -36,6 +37,8 @@ targets:
     dependencies:
       - target: PokerNightWidgetExtension
         embed: true
+      - target: PokerNightWatch
+        embed: true
 
   PokerNightWidgetExtension:
     type: app-extension
@@ -66,4 +69,36 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.pokernight.app.widget
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+
+  PokerNightWatch:
+    type: application
+    platform: watchOS
+    deploymentTarget: "10.0"
+    sources:
+      - path: PokerNightWatch
+      - path: PokerNight/Models
+      - path: PokerNight/Support/SharedModelContainer.swift
+      - path: PokerNight/Support/AppTheme.swift
+      - path: PokerNight/Support/DesignSystem.swift
+      - path: PokerNight/Support/CurrencyFormatter.swift
+    info:
+      properties:
+        CFBundleDisplayName: Poker Night
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: com.pokernight.app
+    entitlements:
+      path: PokerNightWatch/PokerNightWatch.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.pokernight.app
+        com.apple.developer.icloud-services:
+          - CloudKit
+        com.apple.security.application-groups:
+          - group.com.pokernight.app
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.pokernight.app.watchkitapp
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "4"
         CODE_SIGN_STYLE: Automatic

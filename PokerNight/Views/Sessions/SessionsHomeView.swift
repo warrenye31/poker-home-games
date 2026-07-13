@@ -20,15 +20,30 @@ struct SessionsHomeView: View {
     @ViewBuilder
     private var content: some View {
         if let group = appState.selectedGroup {
+            let sessions = group.sessions.sorted(by: { $0.date > $1.date })
             List {
-                ForEach(group.sessions.sorted(by: { $0.date > $1.date })) { session in
-                    NavigationLink(value: session) {
-                        SessionSummaryRow(session: session)
+                Section {
+                    ForEach(sessions) { session in
+                        NavigationLink(value: session) {
+                            SessionSummaryRow(session: session)
+                        }
                     }
+                    .listRowBackground(AppTheme.surface)
                 }
             }
+            .listStyle(.insetGrouped)
+            .appScreenBackground()
             .navigationDestination(for: Session.self) { session in
                 SettlementView(session: session)
+            }
+            .overlay {
+                if sessions.isEmpty {
+                    ContentUnavailableView(
+                        "No sessions yet",
+                        systemImage: "suit.spade",
+                        description: Text("Start one from your group's page.")
+                    )
+                }
             }
         } else {
             ContentUnavailableView(
@@ -36,6 +51,7 @@ struct SessionsHomeView: View {
                 systemImage: "suit.spade",
                 description: Text("Open a group first from the Groups tab.")
             )
+            .appScreenBackground()
         }
     }
 
@@ -55,10 +71,21 @@ private struct SessionSummaryRow: View {
 
     var body: some View {
         HStack {
-            Text(session.date.formatted(date: .abbreviated, time: .omitted))
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 8) {
+                    Text(session.date.formatted(date: .abbreviated, time: .omitted))
+                        .font(.body.weight(.semibold))
+                    if session.status == .active {
+                        LivePill()
+                    }
+                }
+                Text("\(session.entries.count) player\(session.entries.count == 1 ? "" : "s")")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
             Spacer()
-            Text(CurrencyFormatter.string(from: session.totalBuyIns))
-                .foregroundStyle(Color.accentColor)
+            MoneyText(amount: session.totalBuyIns, style: .callout)
         }
+        .padding(.vertical, 4)
     }
 }

@@ -14,6 +14,15 @@ targets:
       properties:
         CFBundleDisplayName: Poker Night
         UILaunchScreen: {}
+        UIBackgroundModes:
+          - remote-notification
+    entitlements:
+      path: PokerNight/PokerNight.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.pokernight.app
+        com.apple.developer.icloud-services:
+          - CloudKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.pokernight.app

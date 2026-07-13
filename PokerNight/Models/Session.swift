@@ -7,15 +7,18 @@ enum SessionStatus: String, Codable {
 
 @Model
 final class Session {
-    var date: Date
+    var date: Date = Date.now
     var location: String?
     var group: GameGroup?
-    var usesBank: Bool
+    var usesBank: Bool = false
     var bankPlayer: Player?
-    private var statusRaw: String
+    private var statusRaw: String = SessionStatus.active.rawValue
 
     @Relationship(deleteRule: .cascade, inverse: \SessionEntry.session)
     var entries: [SessionEntry] = []
+
+    @Relationship(deleteRule: .cascade, inverse: \SettlementPayment.session)
+    var settlementPayments: [SettlementPayment] = []
 
     init(date: Date = .now, location: String? = nil, usesBank: Bool = false, bankPlayer: Player? = nil) {
         self.date = date

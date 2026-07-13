@@ -10,36 +10,68 @@ struct GroupDetailView: View {
 
     var body: some View {
         List {
-            Section("Roster") {
+            Section {
                 ForEach(group.players) { player in
-                    Text(player.name)
+                    HStack(spacing: 14) {
+                        Monogram(name: player.name, size: 36)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(player.name)
+                                .font(.body.weight(.medium))
+                            Text("\(player.gamesPlayed) game\(player.gamesPlayed == 1 ? "" : "s")")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        MoneyText(amount: player.lifetimeNet, role: .net, style: .callout)
+                    }
+                    .padding(.vertical, 4)
                 }
+                .listRowBackground(AppTheme.surface)
+
                 Button {
                     isAddingPlayer = true
                 } label: {
                     Label("Add player", systemImage: "person.badge.plus")
+                        .font(.body.weight(.medium))
                 }
+                .listRowBackground(AppTheme.surface)
+            } header: {
+                SectionLabel("Roster")
             }
 
-            Section("Session history") {
+            Section {
                 if sortedSessions.isEmpty {
                     Text("No sessions yet")
                         .foregroundStyle(.secondary)
+                        .listRowBackground(AppTheme.surface)
                 } else {
                     ForEach(sortedSessions) { session in
                         NavigationLink(value: session) {
                             SessionRow(session: session)
                         }
                     }
+                    .listRowBackground(AppTheme.surface)
                 }
+            } header: {
+                SectionLabel("Session history")
             }
         }
+        .listStyle(.insetGrouped)
+        .appScreenBackground()
         .navigationTitle(group.name)
         .navigationDestination(for: Session.self) { session in
             SettlementView(session: session)
         }
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                if !group.sessions.isEmpty {
+                    ShareLink(
+                        item: SessionHistoryExport(group: group),
+                        preview: SharePreview("\(group.name) sessions")
+                    ) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
                 Button {
                     isPresentingNewSession = true
                 } label: {
@@ -75,17 +107,21 @@ private struct SessionRow: View {
 
     var body: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(session.date.formatted(date: .abbreviated, time: .omitted))
-                    .font(.body.weight(.medium))
-                Text(session.usesBank ? "Bank: \(session.bankPlayer?.name ?? "-")" : "No bank")
-                    .font(.caption)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 8) {
+                    Text(session.date.formatted(date: .abbreviated, time: .omitted))
+                        .font(.body.weight(.semibold))
+                    if session.status == .active {
+                        LivePill()
+                    }
+                }
+                Text(session.usesBank ? "Bank \u{00B7} \(session.bankPlayer?.name ?? "\u{2014}")" : "No bank")
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(CurrencyFormatter.string(from: session.totalBuyIns))
-                .foregroundStyle(Color.accentColor)
-                .font(.body.weight(.medium))
+            MoneyText(amount: session.totalBuyIns, style: .callout)
         }
+        .padding(.vertical, 4)
     }
 }

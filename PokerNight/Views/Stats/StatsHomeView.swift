@@ -34,8 +34,8 @@ struct StatsHomeView: View {
                     Section {
                         netChart(for: ranked)
                             .frame(height: CGFloat(ranked.count) * 36 + 28)
-                            .listRowInsets(EdgeInsets(top: 20, leading: 16, bottom: 12, trailing: 20))
-                            .listRowBackground(AppTheme.surface)
+                            .cardBackground()
+                            .cardRowContainer()
                     } header: {
                         SectionLabel("Lifetime net")
                     }
@@ -44,7 +44,7 @@ struct StatsHomeView: View {
                         ForEach(ranked) { entry in
                             standingRow(entry)
                         }
-                        .listRowBackground(AppTheme.surface)
+                        .cardRowContainer()
                     } header: {
                         SectionLabel("Standings")
                     }
@@ -80,7 +80,7 @@ struct StatsHomeView: View {
             Spacer()
             MoneyText(amount: entry.player.lifetimeNet, role: .net, style: .callout)
         }
-        .padding(.vertical, 3)
+        .cardBackground()
     }
 
     private func netChart(for ranked: [RankedPlayer]) -> some View {

@@ -16,7 +16,7 @@ struct GroupsListView: View {
                         }
                     }
                     .onDelete(perform: deleteGroups)
-                    .listRowBackground(AppTheme.surface)
+                    .cardRowContainer()
                 }
             }
             .listStyle(.insetGrouped)
@@ -70,7 +70,7 @@ private struct GroupRow: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(.vertical, 6)
+        .cardBackground()
     }
 
     private var subtitle: String {

@@ -3,8 +3,8 @@ import SwiftData
 
 @Model
 final class GameGroup {
-    var name: String
-    var createdDate: Date
+    var name: String = ""
+    var createdDate: Date = Date.now
 
     @Relationship(deleteRule: .cascade, inverse: \Player.group)
     var players: [Player] = []

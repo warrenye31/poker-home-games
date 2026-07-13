@@ -1,10 +1,14 @@
 import Foundation
+import SwiftData
 
 struct Transfer: Identifiable {
-    let id = UUID()
     let from: Player
     let to: Player
     let amount: Decimal
+
+    var id: String {
+        "\(from.persistentModelID)->\(to.persistentModelID)"
+    }
 }
 
 enum SettlementCalculator {

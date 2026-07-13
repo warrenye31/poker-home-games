@@ -15,9 +15,11 @@ struct SessionSetupView: View {
 
     var body: some View {
         Form {
-            Section("Details") {
+            Section {
                 DatePicker("Date", selection: $date, displayedComponents: .date)
+                    .listRowBackground(AppTheme.surface)
                 Toggle("Use a bank", isOn: $usesBank)
+                    .listRowBackground(AppTheme.surface)
                 if usesBank {
                     Picker("Bank", selection: $bankPlayer) {
                         Text("Select a player").tag(Player?.none)
@@ -25,26 +27,33 @@ struct SessionSetupView: View {
                             Text(player.name).tag(Optional(player))
                         }
                     }
+                    .listRowBackground(AppTheme.surface)
                 }
+            } header: {
+                SectionLabel("Details")
             }
 
-            Section("Players") {
+            Section {
                 ForEach(group.players) { player in
+                    let isSelected = selectedPlayerIDs.contains(player.persistentModelID)
                     Button {
                         toggle(player)
                     } label: {
-                        HStack {
+                        HStack(spacing: 14) {
+                            Monogram(name: player.name, size: 34)
                             Text(player.name)
+                                .font(.body.weight(.medium))
                             Spacer()
-                            if selectedPlayerIDs.contains(player.persistentModelID) {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(Color.accentColor)
-                            }
+                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                .font(.title3)
+                                .foregroundStyle(isSelected ? AppTheme.accent : Color.secondary.opacity(0.5))
                         }
+                        .padding(.vertical, 2)
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.primary)
                 }
+                .listRowBackground(AppTheme.surface)
+
                 HStack {
                     TextField("Add new player", text: $newPlayerName)
                     Button("Add") {
@@ -55,14 +64,20 @@ struct SessionSetupView: View {
                         selectedPlayerIDs.insert(player.persistentModelID)
                         newPlayerName = ""
                     }
+                    .fontWeight(.semibold)
                     .disabled(newPlayerName.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
+                .listRowBackground(AppTheme.surface)
+            } header: {
+                SectionLabel("Players")
             }
         }
+        .appScreenBackground()
         .navigationTitle("New session")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Start") { start() }
+                    .fontWeight(.semibold)
                     .disabled(selectedPlayerIDs.count < 2 || (usesBank && bankPlayer == nil))
             }
         }

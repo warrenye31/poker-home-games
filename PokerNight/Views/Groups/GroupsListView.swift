@@ -9,14 +9,18 @@ struct GroupsListView: View {
     var body: some View {
         NavigationStack {
             List {
-                ForEach(groups) { group in
-                    NavigationLink(value: group) {
-                        GroupRow(group: group)
+                Section {
+                    ForEach(groups) { group in
+                        NavigationLink(value: group) {
+                            GroupRow(group: group)
+                        }
                     }
+                    .onDelete(perform: deleteGroups)
+                    .listRowBackground(AppTheme.surface)
                 }
-                .onDelete(perform: deleteGroups)
             }
-            .listStyle(.plain)
+            .listStyle(.insetGrouped)
+            .appScreenBackground()
             .navigationTitle("Groups")
             .navigationDestination(for: GameGroup.self) { group in
                 GroupDetailView(group: group)
@@ -56,17 +60,17 @@ private struct GroupRow: View {
     let group: GameGroup
 
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: 14) {
+            Monogram(name: group.name, kind: .group, size: 40)
+            VStack(alignment: .leading, spacing: 3) {
                 Text(group.name)
-                    .font(.body.weight(.medium))
+                    .font(.body.weight(.semibold))
                 Text(subtitle)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-            Spacer()
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
     }
 
     private var subtitle: String {

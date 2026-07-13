@@ -12,27 +12,28 @@ struct LiveSessionView: View {
     var body: some View {
         List {
             Section {
-                HStack {
-                    Text("Pot")
-                    Spacer()
-                    Text(CurrencyFormatter.string(from: session.totalBuyIns))
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(Color.accentColor)
+                VStack(spacing: 6) {
+                    SectionLabel("Pot")
+                    MoneyText(amount: session.totalBuyIns, style: .largeTitle)
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .listRowBackground(AppTheme.surface)
             }
 
-            Section("Players") {
+            Section {
                 ForEach(session.entries) { entry in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 14) {
+                        Monogram(name: entry.player?.name ?? "?", size: 36)
+                        VStack(alignment: .leading, spacing: 2) {
                             Text(entry.player?.name ?? "Unknown")
+                                .font(.body.weight(.medium))
                             Text("\(entry.buyIns.count) buy-in\(entry.buyIns.count == 1 ? "" : "s")")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Text(CurrencyFormatter.string(from: entry.totalBuyIn))
-                            .font(.body.weight(.medium))
+                        MoneyText(amount: entry.totalBuyIn, style: .callout)
                         Menu {
                             Button("Add \(CurrencyFormatter.string(from: Decimal(defaultBuyIn)))") {
                                 entry.buyIns.append(BuyIn(amount: Decimal(defaultBuyIn)))
@@ -42,16 +43,24 @@ struct LiveSessionView: View {
                             }
                         } label: {
                             Image(systemName: "plus.circle.fill")
-                                .foregroundStyle(Color.accentColor)
+                                .font(.title3)
+                                .foregroundStyle(AppTheme.accent)
                         }
                     }
+                    .padding(.vertical, 4)
                 }
+                .listRowBackground(AppTheme.surface)
+            } header: {
+                SectionLabel("Players")
             }
         }
+        .listStyle(.insetGrouped)
+        .appScreenBackground()
         .navigationTitle(session.date.formatted(date: .abbreviated, time: .omitted))
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("End session") { onEnd() }
+                    .fontWeight(.semibold)
             }
         }
         .alert(

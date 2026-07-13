@@ -13,7 +13,9 @@ enum CurrencyFormatter {
     }
 
     private static func formatter() -> NumberFormatter {
-        let code = UserDefaults.standard.string(forKey: "currencyCode") ?? "USD"
+        // Shared App Group suite so the widget extension sees the same
+        // currency the user picked in Settings, not just the main app.
+        let code = SharedModelContainer.sharedDefaults?.string(forKey: "currencyCode") ?? "USD"
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
         formatter.currencyCode = code

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @AppStorage("defaultBuyIn") private var defaultBuyIn: Double = 20
-    @AppStorage("currencyCode") private var currencyCode: String = "USD"
+    @AppStorage("currencyCode", store: SharedModelContainer.sharedDefaults) private var currencyCode: String = "USD"
 
     var body: some View {
         NavigationStack {

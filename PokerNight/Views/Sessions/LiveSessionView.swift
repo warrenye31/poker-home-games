@@ -63,6 +63,7 @@ struct LiveSessionView: View {
                     .fontWeight(.semibold)
             }
         }
+        .sensoryFeedback(.impact(weight: .medium), trigger: totalBuyInsCount)
         .alert(
             "Custom buy-in",
             isPresented: Binding(
@@ -80,5 +81,9 @@ struct LiveSessionView: View {
                 customAmountText = ""
             }
         }
+    }
+
+    private var totalBuyInsCount: Int {
+        session.entries.reduce(0) { $0 + $1.buyIns.count }
     }
 }

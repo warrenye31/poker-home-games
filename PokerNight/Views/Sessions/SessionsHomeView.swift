@@ -28,7 +28,7 @@ struct SessionsHomeView: View {
                             SessionSummaryRow(session: session)
                         }
                     }
-                    .listRowBackground(AppTheme.surface)
+                    .cardRowContainer()
                 }
             }
             .listStyle(.insetGrouped)
@@ -86,6 +86,6 @@ private struct SessionSummaryRow: View {
             Spacer()
             MoneyText(amount: session.totalBuyIns, style: .callout)
         }
-        .padding(.vertical, 4)
+        .cardBackground()
     }
 }

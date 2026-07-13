@@ -1,6 +1,11 @@
 import SwiftUI
+import SwiftData
 
 struct RootTabView: View {
+    @Query private var groups: [GameGroup]
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
+    @State private var isPresentingOnboarding = false
+
     var body: some View {
         TabView {
             GroupsListView()
@@ -11,6 +16,14 @@ struct RootTabView: View {
                 .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
+        }
+        .onAppear {
+            if !hasSeenOnboarding && groups.isEmpty {
+                isPresentingOnboarding = true
+            }
+        }
+        .sheet(isPresented: $isPresentingOnboarding, onDismiss: { hasSeenOnboarding = true }) {
+            OnboardingView()
         }
     }
 }

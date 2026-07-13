@@ -23,6 +23,8 @@ targets:
           - iCloud.com.pokernight.app
         com.apple.developer.icloud-services:
           - CloudKit
+        com.apple.security.application-groups:
+          - group.com.pokernight.app
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.pokernight.app
@@ -30,4 +32,38 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_STYLE: Automatic
+    dependencies:
+      - target: PokerNightWidgetExtension
+        embed: true
+
+  PokerNightWidgetExtension:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: PokerNightWidget
+      - path: PokerNight/Models
+      - path: PokerNight/Support/SharedModelContainer.swift
+      - path: PokerNight/Support/AppTheme.swift
+      - path: PokerNight/Support/CurrencyFormatter.swift
+    info:
+      properties:
+        CFBundleDisplayName: Poker Night Leaderboard
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: PokerNightWidget/PokerNightWidget.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.pokernight.app
+        com.apple.developer.icloud-services:
+          - CloudKit
+        com.apple.security.application-groups:
+          - group.com.pokernight.app
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.pokernight.app.widget
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic

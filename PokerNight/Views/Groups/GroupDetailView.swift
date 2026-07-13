@@ -24,17 +24,23 @@ struct GroupDetailView: View {
                         Spacer()
                         MoneyText(amount: player.lifetimeNet, role: .net, style: .callout)
                     }
-                    .padding(.vertical, 4)
+                    .cardBackground()
                 }
-                .listRowBackground(AppTheme.surface)
+                .cardRowContainer()
 
-                Button {
-                    isAddingPlayer = true
-                } label: {
-                    Label("Add player", systemImage: "person.badge.plus")
-                        .font(.body.weight(.medium))
+                HStack {
+                    Spacer()
+                    Button {
+                        isAddingPlayer = true
+                    } label: {
+                        Label("Add player", systemImage: "person.badge.plus")
+                    }
+                    .buttonStyle(.pill(prominent: false))
+                    Spacer()
                 }
-                .listRowBackground(AppTheme.surface)
+                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 10, trailing: 16))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             } header: {
                 SectionLabel("Roster")
             }
@@ -43,14 +49,15 @@ struct GroupDetailView: View {
                 if sortedSessions.isEmpty {
                     Text("No sessions yet")
                         .foregroundStyle(.secondary)
-                        .listRowBackground(AppTheme.surface)
+                        .cardBackground()
+                        .cardRowContainer()
                 } else {
                     ForEach(sortedSessions) { session in
                         NavigationLink(value: session) {
                             SessionRow(session: session)
                         }
                     }
-                    .listRowBackground(AppTheme.surface)
+                    .cardRowContainer()
                 }
             } header: {
                 SectionLabel("Session history")
@@ -122,6 +129,6 @@ private struct SessionRow: View {
             Spacer()
             MoneyText(amount: session.totalBuyIns, style: .callout)
         }
-        .padding(.vertical, 4)
+        .cardBackground()
     }
 }

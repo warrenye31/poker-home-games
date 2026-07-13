@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import WidgetKit
 
 struct EndSessionView: View {
     @Bindable var session: Session
@@ -42,11 +43,15 @@ struct EndSessionView: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Finish") {
                     session.status = .completed
+                    WidgetCenter.shared.reloadTimelines(ofKind: SharedModelContainer.widgetKind)
                     onFinish()
                 }
                 .fontWeight(.semibold)
                 .disabled(!session.isBalanced)
             }
+        }
+        .sensoryFeedback(trigger: session.isBalanced) { _, isBalanced in
+            isBalanced ? .success : nil
         }
     }
 

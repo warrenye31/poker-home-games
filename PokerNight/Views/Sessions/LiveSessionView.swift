@@ -34,17 +34,20 @@ struct LiveSessionView: View {
                         }
                         Spacer()
                         MoneyText(amount: entry.totalBuyIn, style: .callout)
-                        Menu {
-                            Button("Add \(CurrencyFormatter.string(from: session.standardBuyIn))") {
-                                entry.buyIns.append(BuyIn(amount: session.standardBuyIn))
+                        if canEdit {
+                            Menu {
+                                Button("Add \(CurrencyFormatter.string(from: session.standardBuyIn))") {
+                                    entry.buyIns.append(BuyIn(amount: session.standardBuyIn))
+                                    pushIfShared()
+                                }
+                                Button("Custom amount") {
+                                    customAmountEntry = entry
+                                }
+                            } label: {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.title3)
+                                    .foregroundStyle(AppTheme.accent)
                             }
-                            Button("Custom amount") {
-                                customAmountEntry = entry
-                            }
-                        } label: {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.title3)
-                                .foregroundStyle(AppTheme.accent)
                         }
                     }
                     .padding(.vertical, 4)
@@ -58,16 +61,18 @@ struct LiveSessionView: View {
         .appScreenBackground()
         .navigationTitle(session.displayName)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    isEditingSession = true
-                } label: {
-                    Image(systemName: "pencil.circle")
+            if canEdit {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isEditingSession = true
+                    } label: {
+                        Image(systemName: "pencil.circle")
+                    }
                 }
-            }
-            ToolbarItem(placement: .confirmationAction) {
-                Button("End session") { onEnd() }
-                    .fontWeight(.semibold)
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("End session") { onEnd() }
+                        .fontWeight(.semibold)
+                }
             }
         }
         .sheet(isPresented: $isEditingSession) {
@@ -87,13 +92,22 @@ struct LiveSessionView: View {
             Button("Add") {
                 if let entry = customAmountEntry, let value = Decimal(string: customAmountText) {
                     entry.buyIns.append(BuyIn(amount: value))
+                    pushIfShared()
                 }
                 customAmountText = ""
             }
         }
     }
 
+    private var canEdit: Bool { session.group?.canEdit ?? true }
+
     private var totalBuyInsCount: Int {
         session.entries.reduce(0) { $0 + $1.buyIns.count }
+    }
+
+    private func pushIfShared() {
+        if let group = session.group {
+            GroupSyncService.shared.pushSnapshotIfShared(group)
+        }
     }
 }

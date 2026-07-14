@@ -77,7 +77,7 @@ struct EditSessionView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { save() }
                         .fontWeight(.semibold)
-                        .disabled(usesBank && bankPlayer == nil)
+                        .disabled((usesBank && bankPlayer == nil) || !(session.group?.canEdit ?? true))
                 }
             }
         }
@@ -96,6 +96,9 @@ struct EditSessionView: View {
         session.standardBuyIn = Decimal(string: standardBuyInText) ?? session.standardBuyIn
         session.usesBank = usesBank
         session.bankPlayer = usesBank ? bankPlayer : nil
+        if let group = session.group {
+            GroupSyncService.shared.pushSnapshotIfShared(group)
+        }
         dismiss()
     }
 }

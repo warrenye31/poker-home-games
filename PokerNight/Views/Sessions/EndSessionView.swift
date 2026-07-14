@@ -23,6 +23,7 @@ struct EndSessionView: View {
                             .font(AppTheme.money())
                             .monospacedDigit()
                             .frame(width: 100)
+                            .disabled(!canEdit)
                     }
                     .padding(.vertical, 2)
                 }
@@ -44,10 +45,13 @@ struct EndSessionView: View {
                 Button("Finish") {
                     session.status = .completed
                     WidgetCenter.shared.reloadTimelines(ofKind: SharedModelContainer.widgetKind)
+                    if let group = session.group {
+                        GroupSyncService.shared.pushSnapshotIfShared(group)
+                    }
                     onFinish()
                 }
                 .fontWeight(.semibold)
-                .disabled(!session.isBalanced)
+                .disabled(!session.isBalanced || !canEdit)
             }
         }
         .sensoryFeedback(trigger: session.isBalanced) { _, isBalanced in
@@ -64,6 +68,8 @@ struct EndSessionView: View {
             }
         )
     }
+
+    private var canEdit: Bool { session.group?.canEdit ?? true }
 
     private var difference: Decimal {
         session.totalCashOuts - session.totalBuyIns

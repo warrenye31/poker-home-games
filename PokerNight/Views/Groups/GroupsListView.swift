@@ -5,6 +5,7 @@ struct GroupsListView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \GameGroup.createdDate, order: .reverse) private var groups: [GameGroup]
     @State private var isPresentingNewGroup = false
+    @State private var isPresentingJoinGroup = false
 
     var body: some View {
         NavigationStack {
@@ -26,7 +27,12 @@ struct GroupsListView: View {
                 GroupDetailView(group: group)
             }
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        isPresentingJoinGroup = true
+                    } label: {
+                        Image(systemName: "person.badge.key")
+                    }
                     Button {
                         isPresentingNewGroup = true
                     } label: {
@@ -36,6 +42,9 @@ struct GroupsListView: View {
             }
             .sheet(isPresented: $isPresentingNewGroup) {
                 GroupFormView()
+            }
+            .sheet(isPresented: $isPresentingJoinGroup) {
+                JoinGroupSheet(onJoined: { _ in })
             }
             .overlay {
                 if groups.isEmpty {
@@ -51,7 +60,9 @@ struct GroupsListView: View {
 
     private func deleteGroups(at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(groups[index])
+            let group = groups[index]
+            GroupSyncService.shared.leaveGroup(group)
+            modelContext.delete(group)
         }
     }
 }

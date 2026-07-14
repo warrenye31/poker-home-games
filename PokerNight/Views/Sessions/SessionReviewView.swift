@@ -109,6 +109,7 @@ struct SessionReviewView: View {
             }
             session.entries.append(entry)
         }
+        GroupSyncService.shared.pushSnapshotIfShared(group)
         onCreate(session)
     }
 }

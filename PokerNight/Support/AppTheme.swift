@@ -6,6 +6,10 @@ enum AppTheme {
     static let background = Color(red: 0.055, green: 0.055, blue: 0.07)
     static let surface = Color(red: 0.11, green: 0.11, blue: 0.13)
     static let hairline = Color.white.opacity(0.08)
+    /// Slightly lifted fill for editable fields so they read as tappable inputs against `surface`.
+    static let inputFill = Color.white.opacity(0.06)
+    /// Border for editable fields — brighter than `hairline` so the input outline is legible.
+    static let inputStroke = Color.white.opacity(0.16)
     /// Lifted red for negative amounts — the brand accent is too dark to read as body text on surfaces.
     static let loss = Color(red: 0.95, green: 0.45, blue: 0.42)
 

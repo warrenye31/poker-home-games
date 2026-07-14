@@ -12,8 +12,6 @@ struct SessionReviewView: View {
     var body: some View {
         List {
             Section {
-                LabeledContent("Name", value: draft.name.isEmpty ? draft.date.formatted(date: .abbreviated, time: .omitted) : draft.name)
-                    .listRowBackground(AppTheme.surface)
                 LabeledContent("Date", value: draft.date.formatted(date: .abbreviated, time: .omitted))
                     .listRowBackground(AppTheme.surface)
                 if !draft.location.isEmpty {
@@ -21,7 +19,7 @@ struct SessionReviewView: View {
                         .listRowBackground(AppTheme.surface)
                 }
                 if let smallBlind = draft.smallBlind, let bigBlind = draft.bigBlind {
-                    LabeledContent("Blinds", value: "\(CurrencyFormatter.string(from: smallBlind)) / \(CurrencyFormatter.string(from: bigBlind))")
+                    LabeledContent("Blinds", value: "\(CurrencyFormatter.blindString(from: smallBlind)) / \(CurrencyFormatter.blindString(from: bigBlind))")
                         .listRowBackground(AppTheme.surface)
                 }
                 LabeledContent("Standard buy-in", value: CurrencyFormatter.string(from: draft.standardBuyIn))
@@ -94,7 +92,6 @@ struct SessionReviewView: View {
 
     private func create() {
         let session = Session(
-            name: draft.name,
             date: draft.date,
             location: draft.location.isEmpty ? nil : draft.location,
             usesBank: draft.usesBank,

@@ -158,6 +158,97 @@ extension View {
     }
 }
 
+// MARK: - Input fields
+
+extension View {
+    /// Wraps an editable control in a bordered, lifted box so it reads as a
+    /// tappable input rather than plain text sitting on the row surface.
+    func inputFieldStyle() -> some View {
+        self
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(AppTheme.inputFill, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(AppTheme.inputStroke, lineWidth: 1)
+            }
+    }
+}
+
+/// A labeled money input: caption label on the left, bordered field on the right.
+struct MoneyFieldRow: View {
+    let label: String
+    var placeholder: String = "Optional"
+    @Binding var text: String
+
+    var body: some View {
+        HStack {
+            Text(label)
+            Spacer()
+            TextField(placeholder, text: $text)
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.trailing)
+                .font(AppTheme.money())
+                .monospacedDigit()
+                .frame(width: 96)
+                .inputFieldStyle()
+        }
+    }
+}
+
+// MARK: - Chips
+
+/// Capsule chip used for selectable presets — filled/red when selected,
+/// outlined against the input fill otherwise.
+struct ChipButtonStyle: ButtonStyle {
+    var isSelected = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .monospacedDigit()
+            .padding(.vertical, 8)
+            .padding(.horizontal, 14)
+            .foregroundStyle(isSelected ? Color.white : Color.primary)
+            .background(isSelected ? AppTheme.accent : AppTheme.inputFill, in: Capsule())
+            .overlay {
+                Capsule().stroke(isSelected ? Color.clear : AppTheme.inputStroke, lineWidth: 1)
+            }
+            .opacity(configuration.isPressed ? 0.7 : 1)
+    }
+}
+
+/// Horizontally scrolling row of one-tap blind presets that drive the small/big
+/// blind text fields. Tapping a chip fills both fields; the matching chip
+/// stays highlighted.
+struct BlindPresetRow: View {
+    @Binding var smallBlindText: String
+    @Binding var bigBlindText: String
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(BlindPreset.common) { preset in
+                    Button {
+                        smallBlindText = preset.small
+                        bigBlindText = preset.big
+                    } label: {
+                        Text(preset.label)
+                    }
+                    .buttonStyle(ChipButtonStyle(isSelected: matches(preset)))
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    private func matches(_ preset: BlindPreset) -> Bool {
+        guard let small = Decimal(string: smallBlindText),
+              let big = Decimal(string: bigBlindText) else { return false }
+        return small == preset.smallBlind && big == preset.bigBlind
+    }
+}
+
 // MARK: - Pill buttons
 
 /// Capsule button used for the mockup's pill-style CTAs — filled/red when

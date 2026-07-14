@@ -5,7 +5,6 @@ struct EditSessionView: View {
     @Bindable var session: Session
 
     @Environment(\.dismiss) private var dismiss
-    @State private var name: String
     @State private var date: Date
     @State private var location: String
     @State private var smallBlindText: String
@@ -16,7 +15,6 @@ struct EditSessionView: View {
 
     init(session: Session) {
         self.session = session
-        _name = State(initialValue: session.name)
         _date = State(initialValue: session.date)
         _location = State(initialValue: session.location ?? "")
         _smallBlindText = State(initialValue: session.smallBlind.map { "\($0)" } ?? "")
@@ -30,50 +28,25 @@ struct EditSessionView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Session name (optional)", text: $name)
-                        .listRowBackground(AppTheme.surface)
                     DatePicker("Date", selection: $date, displayedComponents: .date)
                         .listRowBackground(AppTheme.surface)
                     TextField("Location (optional)", text: $location)
+                        .inputFieldStyle()
                         .listRowBackground(AppTheme.surface)
                 } header: {
                     SectionLabel("Details")
                 }
 
                 Section {
-                    HStack {
-                        Text("Small blind")
-                        Spacer()
-                        TextField("Optional", text: $smallBlindText)
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                            .font(AppTheme.money())
-                            .monospacedDigit()
-                            .frame(width: 100)
-                    }
-                    .listRowBackground(AppTheme.surface)
-                    HStack {
-                        Text("Big blind")
-                        Spacer()
-                        TextField("Optional", text: $bigBlindText)
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                            .font(AppTheme.money())
-                            .monospacedDigit()
-                            .frame(width: 100)
-                    }
-                    .listRowBackground(AppTheme.surface)
-                    HStack {
-                        Text("Standard buy-in")
-                        Spacer()
-                        TextField("Amount", text: $standardBuyInText)
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                            .font(AppTheme.money())
-                            .monospacedDigit()
-                            .frame(width: 100)
-                    }
-                    .listRowBackground(AppTheme.surface)
+                    BlindPresetRow(smallBlindText: $smallBlindText, bigBlindText: $bigBlindText)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        .listRowBackground(AppTheme.surface)
+                    MoneyFieldRow(label: "Small blind", text: $smallBlindText)
+                        .listRowBackground(AppTheme.surface)
+                    MoneyFieldRow(label: "Big blind", text: $bigBlindText)
+                        .listRowBackground(AppTheme.surface)
+                    MoneyFieldRow(label: "Standard buy-in", placeholder: "Amount", text: $standardBuyInText)
+                        .listRowBackground(AppTheme.surface)
                 } header: {
                     SectionLabel("Stakes")
                 }
@@ -115,7 +88,6 @@ struct EditSessionView: View {
     }
 
     private func save() {
-        session.name = name.trimmingCharacters(in: .whitespaces)
         session.date = date
         let trimmedLocation = location.trimmingCharacters(in: .whitespaces)
         session.location = trimmedLocation.isEmpty ? nil : trimmedLocation

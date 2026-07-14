@@ -7,7 +7,6 @@ enum SessionStatus: String, Codable {
 
 @Model
 final class Session {
-    var name: String = ""
     var date: Date = Date.now
     var location: String?
     var group: GameGroup?
@@ -25,7 +24,6 @@ final class Session {
     var settlementPayments: [SettlementPayment] = []
 
     init(
-        name: String = "",
         date: Date = .now,
         location: String? = nil,
         usesBank: Bool = false,
@@ -34,7 +32,6 @@ final class Session {
         bigBlind: Decimal? = nil,
         standardBuyIn: Decimal = 20
     ) {
-        self.name = name
         self.date = date
         self.location = location
         self.usesBank = usesBank
@@ -51,9 +48,7 @@ final class Session {
     }
 
     var displayName: String {
-        name.trimmingCharacters(in: .whitespaces).isEmpty
-            ? date.formatted(date: .abbreviated, time: .omitted)
-            : name
+        date.formatted(date: .abbreviated, time: .omitted)
     }
 
     var totalBuyIns: Decimal {

@@ -6,7 +6,6 @@ struct SessionSetupView: View {
     var onNext: (NewSessionDraft) -> Void
 
     @AppStorage("defaultBuyIn") private var defaultBuyIn: Double = 20
-    @State private var name = ""
     @State private var date = Date.now
     @State private var location = ""
     @State private var smallBlindText = ""
@@ -20,11 +19,10 @@ struct SessionSetupView: View {
     var body: some View {
         Form {
             Section {
-                TextField("Session name (optional)", text: $name)
-                    .listRowBackground(AppTheme.surface)
                 DatePicker("Date", selection: $date, displayedComponents: .date)
                     .listRowBackground(AppTheme.surface)
                 TextField("Location (optional)", text: $location)
+                    .inputFieldStyle()
                     .listRowBackground(AppTheme.surface)
                 Toggle("Use a bank", isOn: $usesBank)
                     .listRowBackground(AppTheme.surface)
@@ -42,39 +40,15 @@ struct SessionSetupView: View {
             }
 
             Section {
-                HStack {
-                    Text("Small blind")
-                    Spacer()
-                    TextField("Optional", text: $smallBlindText)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .font(AppTheme.money())
-                        .monospacedDigit()
-                        .frame(width: 100)
-                }
-                .listRowBackground(AppTheme.surface)
-                HStack {
-                    Text("Big blind")
-                    Spacer()
-                    TextField("Optional", text: $bigBlindText)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .font(AppTheme.money())
-                        .monospacedDigit()
-                        .frame(width: 100)
-                }
-                .listRowBackground(AppTheme.surface)
-                HStack {
-                    Text("Standard buy-in")
-                    Spacer()
-                    TextField("Amount", text: $standardBuyInText)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .font(AppTheme.money())
-                        .monospacedDigit()
-                        .frame(width: 100)
-                }
-                .listRowBackground(AppTheme.surface)
+                BlindPresetRow(smallBlindText: $smallBlindText, bigBlindText: $bigBlindText)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    .listRowBackground(AppTheme.surface)
+                MoneyFieldRow(label: "Small blind", text: $smallBlindText)
+                    .listRowBackground(AppTheme.surface)
+                MoneyFieldRow(label: "Big blind", text: $bigBlindText)
+                    .listRowBackground(AppTheme.surface)
+                MoneyFieldRow(label: "Standard buy-in", placeholder: "Amount", text: $standardBuyInText)
+                    .listRowBackground(AppTheme.surface)
             } header: {
                 SectionLabel("Stakes")
             }
@@ -102,6 +76,7 @@ struct SessionSetupView: View {
 
                 HStack {
                     TextField("Add new player", text: $newPlayerName)
+                        .inputFieldStyle()
                     Button("Add") {
                         let trimmed = newPlayerName.trimmingCharacters(in: .whitespaces)
                         guard !trimmed.isEmpty else { return }
@@ -151,7 +126,6 @@ struct SessionSetupView: View {
 
     private func next() {
         let draft = NewSessionDraft(
-            name: name.trimmingCharacters(in: .whitespaces),
             date: date,
             location: location.trimmingCharacters(in: .whitespaces),
             smallBlind: Decimal(string: smallBlindText),

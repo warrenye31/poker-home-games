@@ -1,7 +1,6 @@
 import Foundation
 
 struct NewSessionDraft: Hashable {
-    var name: String
     var date: Date
     var location: String
     var smallBlind: Decimal?

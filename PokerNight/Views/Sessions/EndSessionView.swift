@@ -34,6 +34,9 @@ struct EndSessionView: View {
                             .monospacedDigit()
                             .frame(width: 96)
                             .inputFieldStyle()
+                            .onChange(of: cashOutText[entry.persistentModelID] ?? "") { _, newValue in
+                                entry.cashOut = Decimal(string: newValue)
+                            }
                     }
                     .padding(.vertical, 4)
                 }
@@ -133,13 +136,14 @@ struct EndSessionView: View {
 
     // MARK: - Input
 
+    /// Pure text binding — it only touches local `@State`. Syncing the parsed
+    /// value back to the model happens in `.onChange` instead, so the field
+    /// isn't re-rendered mid-keystroke (which reset the cursor to the front and
+    /// made new digits land before the existing ones).
     private func binding(for entry: SessionEntry) -> Binding<String> {
         Binding(
             get: { cashOutText[entry.persistentModelID] ?? "" },
-            set: { newValue in
-                cashOutText[entry.persistentModelID] = newValue
-                entry.cashOut = Decimal(string: newValue)
-            }
+            set: { cashOutText[entry.persistentModelID] = $0 }
         )
     }
 }

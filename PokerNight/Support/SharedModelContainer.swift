@@ -5,7 +5,7 @@ import SwiftData
 /// the app and the widget extension via an App Group container so both
 /// processes read and write the same store.
 enum SharedModelContainer {
-    static let appGroupID = "group.com.pokernight.app"
+    static let appGroupID = "group.com.waylabsinc.pokernight"
     static let selectedGroupNameKey = "selectedGroupName"
     static let widgetKind = "LeaderboardWidget"
 
@@ -20,8 +20,7 @@ enum SharedModelContainer {
         ])
         let configuration = ModelConfiguration(
             schema: schema,
-            groupContainer: .identifier(appGroupID),
-            cloudKitDatabase: .private("iCloud.com.pokernight.app")
+            groupContainer: .identifier(appGroupID)
         )
         do {
             return try ModelContainer(for: schema, configurations: [configuration])

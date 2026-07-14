@@ -32,3 +32,13 @@ final class Player {
         entries.filter { $0.session?.status == .completed }.count
     }
 }
+
+extension Player: Hashable {
+    static func == (lhs: Player, rhs: Player) -> Bool {
+        lhs.persistentModelID == rhs.persistentModelID
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(persistentModelID)
+    }
+}

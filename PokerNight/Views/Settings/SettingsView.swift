@@ -2,7 +2,14 @@ import SwiftUI
 
 struct SettingsView: View {
     @AppStorage("defaultBuyIn") private var defaultBuyIn: Double = 20
-    @AppStorage("currencyCode", store: SharedModelContainer.sharedDefaults) private var currencyCode: String = "USD"
+    @State private var defaultBuyInText = ""
+
+    private var currencyCode: Binding<String> {
+        Binding(
+            get: { CurrencySettings.shared.code },
+            set: { CurrencySettings.shared.setCode($0) }
+        )
+    }
 
     var body: some View {
         NavigationStack {
@@ -11,17 +18,22 @@ struct SettingsView: View {
                     HStack {
                         Text("Default buy-in")
                         Spacer()
-                        TextField("Amount", value: $defaultBuyIn, format: .number)
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                            .font(AppTheme.money())
-                            .monospacedDigit()
-                            .frame(width: 90)
+                        CursorEndTextField(
+                            placeholder: "Amount",
+                            text: $defaultBuyInText,
+                            keyboardType: .decimalPad,
+                            alignment: .trailing,
+                            style: .money()
+                        )
+                        .frame(width: 90)
+                        .onChange(of: defaultBuyInText) { _, newValue in
+                            if let parsed = Double(newValue) { defaultBuyIn = parsed }
+                        }
                     }
                     .listRowBackground(AppTheme.surface)
-                    Picker("Currency", selection: $currencyCode) {
-                        Text("USD ($)").tag("USD")
+                    Picker("Currency", selection: currencyCode) {
                         Text("CAD ($)").tag("CAD")
+                        Text("USD ($)").tag("USD")
                         Text("GBP (\u{00A3})").tag("GBP")
                         Text("EUR (\u{20AC})").tag("EUR")
                     }
@@ -39,6 +51,13 @@ struct SettingsView: View {
             }
             .appScreenBackground()
             .navigationTitle("Settings")
+            .onAppear {
+                if defaultBuyInText.isEmpty {
+                    defaultBuyInText = defaultBuyIn.truncatingRemainder(dividingBy: 1) == 0
+                        ? String(Int(defaultBuyIn))
+                        : String(defaultBuyIn)
+                }
+            }
         }
     }
 }

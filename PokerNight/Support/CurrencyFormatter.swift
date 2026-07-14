@@ -18,13 +18,29 @@ enum CurrencyFormatter {
         formatter(minFractionDigits: 0, maxFractionDigits: 2).string(from: amount as NSDecimalNumber) ?? string(from: amount)
     }
 
+    /// Unsymboled, ungrouped numeric text suitable for feeding back into an
+    /// editable amount field (e.g. auto-filling buy-in from blinds) — "10"
+    /// rather than "10.00" or "$10.00".
+    static func plainString(from amount: Decimal) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = false
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: amount as NSDecimalNumber) ?? "\(amount)"
+    }
+
+    /// Plain symbols only — no "CA$"/"US$" region prefixes, which is what
+    /// `NumberFormatter` inserts automatically once `currencyCode` disagrees
+    /// with the device locale's default currency.
+    private static let symbols: [String: String] = [
+        "USD": "$", "CAD": "$", "GBP": "\u{00A3}", "EUR": "\u{20AC}"
+    ]
+
     private static func formatter(minFractionDigits: Int = 2, maxFractionDigits: Int = 2) -> NumberFormatter {
-        // Shared App Group suite so the widget extension sees the same
-        // currency the user picked in Settings, not just the main app.
-        let code = SharedModelContainer.sharedDefaults?.string(forKey: "currencyCode") ?? "USD"
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
-        formatter.currencyCode = code
+        formatter.currencySymbol = symbols[CurrencySettings.shared.code] ?? "$"
         formatter.minimumFractionDigits = minFractionDigits
         formatter.maximumFractionDigits = maxFractionDigits
         return formatter

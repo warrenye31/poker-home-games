@@ -30,7 +30,7 @@ struct EditSessionView: View {
                 Section {
                     DatePicker("Date", selection: $date, displayedComponents: .date)
                         .listRowBackground(AppTheme.surface)
-                    TextField("Location (optional)", text: $location)
+                    CursorEndTextField(placeholder: "Location (optional)", text: $location)
                         .inputFieldStyle()
                         .listRowBackground(AppTheme.surface)
                 } header: {

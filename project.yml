@@ -50,6 +50,7 @@ targets:
       - path: PokerNight/Support/SharedModelContainer.swift
       - path: PokerNight/Support/AppTheme.swift
       - path: PokerNight/Support/CurrencyFormatter.swift
+      - path: PokerNight/Support/CurrencySettings.swift
     info:
       path: PokerNightWidget/Info.plist
       properties:

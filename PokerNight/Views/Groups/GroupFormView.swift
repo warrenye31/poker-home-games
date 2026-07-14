@@ -11,7 +11,7 @@ struct GroupFormView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Group name", text: $name)
+                    CursorEndTextField(placeholder: "Group name", text: $name)
                         .focused($nameIsFocused)
                         .listRowBackground(AppTheme.surface)
                 }

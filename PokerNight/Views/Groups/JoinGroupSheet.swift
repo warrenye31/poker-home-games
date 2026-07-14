@@ -17,11 +17,14 @@ struct JoinGroupSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Join code", text: $code)
-                        .textInputAutocapitalization(.characters)
-                        .autocorrectionDisabled()
-                        .focused($codeIsFocused)
-                        .listRowBackground(AppTheme.surface)
+                    CursorEndTextField(
+                        placeholder: "Join code",
+                        text: $code,
+                        autocapitalization: .allCharacters,
+                        autocorrection: .no
+                    )
+                    .focused($codeIsFocused)
+                    .listRowBackground(AppTheme.surface)
                 } header: {
                     SectionLabel("Enter the code you were given")
                 } footer: {

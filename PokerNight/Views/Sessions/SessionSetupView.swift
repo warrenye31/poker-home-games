@@ -11,6 +11,7 @@ struct SessionSetupView: View {
     @State private var smallBlindText = ""
     @State private var bigBlindText = ""
     @State private var standardBuyInText = ""
+    @State private var buyInEditedManually = false
     @State private var usesBank = false
     @State private var bankPlayer: Player?
     @State private var selectedPlayerIDs = Set<PersistentIdentifier>()
@@ -21,7 +22,7 @@ struct SessionSetupView: View {
             Section {
                 DatePicker("Date", selection: $date, displayedComponents: .date)
                     .listRowBackground(AppTheme.surface)
-                TextField("Location (optional)", text: $location)
+                CursorEndTextField(placeholder: "Location (optional)", text: $location)
                     .inputFieldStyle()
                     .listRowBackground(AppTheme.surface)
                 Toggle("Use a bank", isOn: $usesBank)
@@ -47,7 +48,7 @@ struct SessionSetupView: View {
                     .listRowBackground(AppTheme.surface)
                 MoneyFieldRow(label: "Big blind", text: $bigBlindText)
                     .listRowBackground(AppTheme.surface)
-                MoneyFieldRow(label: "Standard buy-in", placeholder: "Amount", text: $standardBuyInText)
+                MoneyFieldRow(label: "Standard buy-in", placeholder: "Amount", text: standardBuyInBinding)
                     .listRowBackground(AppTheme.surface)
             } header: {
                 SectionLabel("Stakes")
@@ -75,7 +76,7 @@ struct SessionSetupView: View {
                 .listRowBackground(AppTheme.surface)
 
                 HStack {
-                    TextField("Add new player", text: $newPlayerName)
+                    CursorEndTextField(placeholder: "Add new player", text: $newPlayerName)
                         .inputFieldStyle()
                     Button("Add") {
                         let trimmed = newPlayerName.trimmingCharacters(in: .whitespaces)
@@ -109,10 +110,24 @@ struct SessionSetupView: View {
                     : String(defaultBuyIn)
             }
         }
+        .onChange(of: bigBlindText) { _, newValue in
+            guard !buyInEditedManually, let bigBlind = Decimal(string: newValue), bigBlind > 0 else { return }
+            // Standard home-game convention: buy in for 100 big blinds.
+            standardBuyInText = CurrencyFormatter.plainString(from: bigBlind * 100)
+        }
     }
 
     private var selectedPlayers: [Player] {
         group.players.filter { selectedPlayerIDs.contains($0.persistentModelID) }
+    }
+
+    /// Tracks manual edits separately from the 100BB auto-fill: once someone
+    /// types their own buy-in, further blind changes stop overwriting it.
+    private var standardBuyInBinding: Binding<String> {
+        Binding(
+            get: { standardBuyInText },
+            set: { standardBuyInText = $0; buyInEditedManually = true }
+        )
     }
 
     private func toggle(_ player: Player) {

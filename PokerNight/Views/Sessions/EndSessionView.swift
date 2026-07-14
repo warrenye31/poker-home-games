@@ -32,6 +32,8 @@ struct EndSessionView: View {
                             .multilineTextAlignment(.trailing)
                             .font(AppTheme.money())
                             .monospacedDigit()
+                            .frame(width: 100)
+                            .disabled(!canEdit)
                             .frame(width: 96)
                             .inputFieldStyle()
                             .onChange(of: cashOutText[entry.persistentModelID] ?? "") { _, newValue in
@@ -56,10 +58,13 @@ struct EndSessionView: View {
                     guard session.isBalanced else { return }
                     session.status = .completed
                     WidgetCenter.shared.reloadTimelines(ofKind: SharedModelContainer.widgetKind)
+                    if let group = session.group {
+                        GroupSyncService.shared.pushSnapshotIfShared(group)
+                    }
                     onFinish()
                 }
                 .fontWeight(.semibold)
-                .disabled(!session.isBalanced)
+                .disabled(!session.isBalanced || !canEdit)
             }
         }
         .sensoryFeedback(trigger: session.isBalanced) { _, isBalanced in
@@ -67,6 +72,21 @@ struct EndSessionView: View {
         }
     }
 
+    private func binding(for entry: SessionEntry) -> Binding<String> {
+        Binding(
+            get: { cashOutText[entry.persistentModelID] ?? "" },
+            set: { newValue in
+                cashOutText[entry.persistentModelID] = newValue
+                entry.cashOut = Decimal(string: newValue)
+            }
+        )
+    }
+
+    private var canEdit: Bool { session.group?.canEdit ?? true }
+
+    private var difference: Decimal {
+        session.totalCashOuts - session.totalBuyIns
+    }
     // MARK: - Summary
 
     @ViewBuilder

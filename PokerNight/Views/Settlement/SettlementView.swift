@@ -57,11 +57,13 @@ struct SettlementView: View {
         .appScreenBackground()
         .navigationTitle(session.displayName)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    isEditingSession = true
-                } label: {
-                    Image(systemName: "pencil.circle")
+            if canEdit {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isEditingSession = true
+                    } label: {
+                        Image(systemName: "pencil.circle")
+                    }
                 }
             }
             if let onDone {
@@ -76,9 +78,12 @@ struct SettlementView: View {
         }
     }
 
+    private var canEdit: Bool { session.group?.canEdit ?? true }
+
     private func transferRow(for transfer: Transfer) -> some View {
         let payment = payment(for: transfer)
         return Button {
+            guard canEdit else { return }
             payment.isPaid.toggle()
         } label: {
             HStack(spacing: 12) {
@@ -106,6 +111,7 @@ struct SettlementView: View {
             .padding(.vertical, 4)
         }
         .buttonStyle(.plain)
+        .disabled(!canEdit)
     }
 
     private func payment(for transfer: Transfer) -> SettlementPayment {

@@ -1,6 +1,14 @@
 import Foundation
 import SwiftData
 
+/// Whether *this device* is the owner of a group (can edit) or just a viewer
+/// who joined via a share code (read-only). This is never synced itself — each
+/// device decides its own role for its local copy of the group.
+enum GroupRole: String, Codable {
+    case admin
+    case viewer
+}
+
 @Model
 final class GameGroup {
     /// Stable, cross-device identity used for all server sync and the claim
@@ -13,15 +21,40 @@ final class GameGroup {
     var name: String = ""
     var createdDate: Date = Date.now
 
+    // Sharing/sync state (Phase 2). All local-only flags describing this
+    // device's relationship to the group — never written to Supabase.
+    private var roleRaw: String = GroupRole.admin.rawValue
+    var isShared: Bool = false
+    var joinCode: String?
+    var lastSyncedAt: Date?
+
+    /// The player who is the actual group creator, as designated by the
+    /// admin device. Unlike the fields above, this IS synced (`admin_player_id`
+    /// on the server) so every viewer sees the same value — it's the one
+    /// identity that must never be claimable by anyone else. Only the admin
+    /// device can change it; that's enforced the same way as any other write
+    /// to this row (RLS: `admin_id = auth.uid()`).
+    var adminPlayerID: UUID?
+
     @Relationship(deleteRule: .cascade, inverse: \Player.group)
     var players: [Player] = []
 
     @Relationship(deleteRule: .cascade, inverse: \Session.group)
     var sessions: [Session] = []
 
-    init(name: String, createdDate: Date = .now, id: UUID = UUID()) {
+    init(name: String, createdDate: Date = .now, id: UUID = UUID(), role: GroupRole = .admin) {
         self.id = id
         self.name = name
         self.createdDate = createdDate
+        self.roleRaw = role.rawValue
     }
+
+    var role: GroupRole {
+        get { GroupRole(rawValue: roleRaw) ?? .admin }
+        set { roleRaw = newValue.rawValue }
+    }
+
+    /// Only the admin device may create/edit players, sessions, and entries.
+    /// Viewer devices render everything read-only.
+    var canEdit: Bool { role == .admin }
 }

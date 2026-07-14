@@ -3,6 +3,10 @@ options:
   bundleIdPrefix: com.waylabsinc.pokernight
   deploymentTarget:
     iOS: "17.0"
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: "2.0.0"
 targets:
   PokerNight:
     type: application
@@ -33,6 +37,8 @@ targets:
     dependencies:
       - target: PokerNightWidgetExtension
         embed: true
+      - package: Supabase
+        product: Supabase
 
   PokerNightWidgetExtension:
     type: app-extension

@@ -3,6 +3,9 @@ import SwiftData
 
 @Model
 final class Player {
+    /// Stable, cross-device identity. See `GameGroup.id` for why this isn't
+    /// marked `.unique`. The claim feature stores this UUID locally.
+    var id: UUID = UUID()
     var name: String = ""
     var group: GameGroup?
 
@@ -18,7 +21,8 @@ final class Player {
     @Relationship(inverse: \SettlementPayment.toPlayer)
     var paymentsReceivable: [SettlementPayment] = []
 
-    init(name: String) {
+    init(name: String, id: UUID = UUID()) {
+        self.id = id
         self.name = name
     }
 
@@ -35,10 +39,10 @@ final class Player {
 
 extension Player: Hashable {
     static func == (lhs: Player, rhs: Player) -> Bool {
-        lhs.persistentModelID == rhs.persistentModelID
+        lhs.id == rhs.id
     }
 
     func hash(into hasher: inout Hasher) {
-        hasher.combine(persistentModelID)
+        hasher.combine(id)
     }
 }

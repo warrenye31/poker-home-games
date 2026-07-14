@@ -7,6 +7,9 @@ enum SessionStatus: String, Codable {
 
 @Model
 final class Session {
+    /// Stable, cross-device identity. See `GameGroup.id` for why this isn't
+    /// marked `.unique`.
+    var id: UUID = UUID()
     var date: Date = Date.now
     var location: String?
     var group: GameGroup?
@@ -30,8 +33,10 @@ final class Session {
         bankPlayer: Player? = nil,
         smallBlind: Decimal? = nil,
         bigBlind: Decimal? = nil,
-        standardBuyIn: Decimal = 20
+        standardBuyIn: Decimal = 20,
+        id: UUID = UUID()
     ) {
+        self.id = id
         self.date = date
         self.location = location
         self.usesBank = usesBank

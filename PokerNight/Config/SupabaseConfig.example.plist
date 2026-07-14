@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Template for Supabase credentials.
+
+  Copy this file to `SupabaseConfig.plist` in the same folder and fill in the
+  values from your Supabase project's Settings → API page:
+
+    • SupabaseURL     = the Project URL   (e.g. https://abcdefgh.supabase.co)
+    • SupabaseAnonKey = the anon / public key  (the "anon" "public" API key)
+
+  `SupabaseConfig.plist` is gitignored and must never be committed.
+  NEVER put the service_role key here — the anon key only.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>SupabaseURL</key>
+	<string>https://YOUR-PROJECT-REF.supabase.co</string>
+	<key>SupabaseAnonKey</key>
+	<string>YOUR-ANON-PUBLIC-KEY</string>
+</dict>
+</plist>

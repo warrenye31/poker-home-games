@@ -96,12 +96,16 @@ struct SessionsHomeView: View {
                 }
             }
         }
-        .swipeActions(edge: .trailing) {
-            Button(role: .destructive) {
+        // No full swipe / destructive role here: those animate the row out on
+        // swipe, but we only want to open the confirmation. Deletion happens
+        // for real once the dialog is confirmed.
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button {
                 sessionToDelete = session
             } label: {
                 Label("Delete", systemImage: "trash")
             }
+            .tint(AppTheme.accent)
         }
     }
 

@@ -185,13 +185,15 @@ struct MoneyFieldRow: View {
         HStack {
             Text(label)
             Spacer()
-            TextField(placeholder, text: $text)
-                .keyboardType(.decimalPad)
-                .multilineTextAlignment(.trailing)
-                .font(AppTheme.money())
-                .monospacedDigit()
-                .frame(width: 96)
-                .inputFieldStyle()
+            CursorEndTextField(
+                placeholder: placeholder,
+                text: $text,
+                keyboardType: .decimalPad,
+                alignment: .trailing,
+                style: .money()
+            )
+            .frame(width: 96)
+            .inputFieldStyle()
         }
     }
 }

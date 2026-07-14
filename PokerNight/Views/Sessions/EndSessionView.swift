@@ -7,6 +7,7 @@ struct EndSessionView: View {
     var onFinish: () -> Void
 
     @State private var cashOutText: [PersistentIdentifier: String] = [:]
+    @State private var isFinishing = false
 
     var body: some View {
         List {
@@ -27,18 +28,19 @@ struct EndSessionView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        TextField("Cash out", text: binding(for: entry))
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                            .font(AppTheme.money())
-                            .monospacedDigit()
-                            .frame(width: 100)
-                            .disabled(!canEdit)
-                            .frame(width: 96)
-                            .inputFieldStyle()
-                            .onChange(of: cashOutText[entry.persistentModelID] ?? "") { _, newValue in
-                                entry.cashOut = Decimal(string: newValue)
-                            }
+                        CursorEndTextField(
+                            placeholder: "Cash out",
+                            text: binding(for: entry),
+                            keyboardType: .decimalPad,
+                            alignment: .trailing,
+                            style: .money()
+                        )
+                        .frame(width: 96)
+                        .disabled(!canEdit)
+                        .inputFieldStyle()
+                        .onChange(of: cashOutText[entry.persistentModelID] ?? "") { _, newValue in
+                            entry.cashOut = Decimal(string: newValue)
+                        }
                     }
                     .padding(.vertical, 4)
                 }
@@ -55,7 +57,12 @@ struct EndSessionView: View {
                 Button("Finish") {
                     // Hard gate: never advance to settlement on an unbalanced
                     // session, even if the disabled state is somehow bypassed.
-                    guard session.isBalanced else { return }
+                    // `isFinishing` gates re-entrancy: spam-tapping before the
+                    // navigation push completes used to append a duplicate
+                    // `.settlement` step per tap, stacking repeat settlement
+                    // screens on the nav path and re-firing the group sync push.
+                    guard session.isBalanced, !isFinishing else { return }
+                    isFinishing = true
                     session.status = .completed
                     WidgetCenter.shared.reloadTimelines(ofKind: SharedModelContainer.widgetKind)
                     if let group = session.group {
@@ -64,22 +71,38 @@ struct EndSessionView: View {
                     onFinish()
                 }
                 .fontWeight(.semibold)
-                .disabled(!session.isBalanced || !canEdit)
+                .disabled(!session.isBalanced || !canEdit || isFinishing)
             }
         }
         .sensoryFeedback(trigger: session.isBalanced) { _, isBalanced in
             isBalanced ? .success : nil
         }
+        .onAppear(perform: handleAppear)
     }
 
-    private func binding(for entry: SessionEntry) -> Binding<String> {
-        Binding(
-            get: { cashOutText[entry.persistentModelID] ?? "" },
-            set: { newValue in
-                cashOutText[entry.persistentModelID] = newValue
-                entry.cashOut = Decimal(string: newValue)
+    private func handleAppear() {
+        seedCashOutTextFromModel()
+        // SwiftUI preserves this view's @State at its slot in the nav path
+        // when a Finish tap pushes Settlement on top of it, rather than
+        // tearing it down. Without resetting here, navigating back to a still
+        // -active session after a successful Finish would find `isFinishing`
+        // still `true` from before and the button permanently disabled.
+        isFinishing = false
+    }
+
+    /// `cashOutText` starts empty every time this view is (re)created, but
+    /// `entry.cashOut` may already hold a value — either from a previous visit
+    /// to this screen, or from a keystroke that reached the model via
+    /// `.onChange` right before the app was backgrounded/crashed and SwiftData
+    /// autosaved. Without this, the field renders blank while the summary
+    /// above still totals the stale model value, e.g. showing "$100 over the
+    /// pot" with every field visibly empty.
+    private func seedCashOutTextFromModel() {
+        for entry in session.entries where cashOutText[entry.persistentModelID] == nil {
+            if let cashOut = entry.cashOut {
+                cashOutText[entry.persistentModelID] = "\(cashOut)"
             }
-        )
+        }
     }
 
     private var canEdit: Bool { session.group?.canEdit ?? true }

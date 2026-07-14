@@ -96,16 +96,17 @@ struct SessionsHomeView: View {
                 }
             }
         }
-        // No full swipe / destructive role here: those animate the row out on
-        // swipe, but we only want to open the confirmation. Deletion happens
-        // for real once the dialog is confirmed.
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button {
+        // Context menu instead of a swipe action: swipe buttons render against
+        // the List row's own frame, which drifts out of alignment with the
+        // custom card background/insets from .cardRowContainer(). A long-press
+        // menu is positioned by the system at the touch point, so it can't
+        // desync from the row it belongs to.
+        .contextMenu {
+            Button(role: .destructive) {
                 sessionToDelete = session
             } label: {
                 Label("Delete", systemImage: "trash")
             }
-            .tint(AppTheme.accent)
         }
     }
 

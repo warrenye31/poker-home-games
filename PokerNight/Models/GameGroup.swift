@@ -28,6 +28,14 @@ final class GameGroup {
     var joinCode: String?
     var lastSyncedAt: Date?
 
+    /// The player who is the actual group creator, as designated by the
+    /// admin device. Unlike the fields above, this IS synced (`admin_player_id`
+    /// on the server) so every viewer sees the same value — it's the one
+    /// identity that must never be claimable by anyone else. Only the admin
+    /// device can change it; that's enforced the same way as any other write
+    /// to this row (RLS: `admin_id = auth.uid()`).
+    var adminPlayerID: UUID?
+
     @Relationship(deleteRule: .cascade, inverse: \Player.group)
     var players: [Player] = []
 

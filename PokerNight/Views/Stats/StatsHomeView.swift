@@ -5,17 +5,37 @@ import Charts
 struct StatsHomeView: View {
     @Environment(AppState.self) private var appState
     @Query(sort: \GameGroup.name) private var groups: [GameGroup]
+    @State private var isPresentingClaimSheet = false
+    @State private var claimedPlayerID: UUID?
 
     var body: some View {
         NavigationStack {
             content
                 .navigationTitle("Leaderboard")
                 .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        if appState.selectedGroup != nil {
+                            Button {
+                                isPresentingClaimSheet = true
+                            } label: {
+                                Image(systemName: "person.crop.circle.badge.checkmark")
+                            }
+                        }
                         groupSwitcher
                     }
                 }
+                .sheet(isPresented: $isPresentingClaimSheet) {
+                    if let group = appState.selectedGroup {
+                        ClaimPlayerSheet(group: group, onClaimChanged: refreshClaim)
+                    }
+                }
+                .onAppear(perform: refreshClaim)
+                .onChange(of: appState.selectedGroup?.id) { _, _ in refreshClaim() }
         }
+    }
+
+    private func refreshClaim() {
+        claimedPlayerID = appState.selectedGroup.flatMap { PlayerClaimStore.validClaimedPlayerID(for: $0) }
     }
 
     @ViewBuilder
@@ -31,6 +51,13 @@ struct StatsHomeView: View {
                 .appScreenBackground()
             } else {
                 List {
+                    if let claimedPlayerID, let you = ranked.first(where: { $0.player.id == claimedPlayerID }) {
+                        Section {
+                            yourStatsCard(you)
+                                .cardRowContainer()
+                        }
+                    }
+
                     Section {
                         netChart(for: ranked)
                             .frame(height: CGFloat(ranked.count) * 36 + 28)
@@ -63,7 +90,8 @@ struct StatsHomeView: View {
     }
 
     private func standingRow(_ entry: RankedPlayer) -> some View {
-        HStack(spacing: 12) {
+        let isYou = entry.player.id == claimedPlayerID
+        return HStack(spacing: 12) {
             Text("\(entry.rank)")
                 .font(AppTheme.money(.footnote))
                 .monospacedDigit()
@@ -71,14 +99,40 @@ struct StatsHomeView: View {
                 .frame(width: 18, alignment: .trailing)
             Monogram(name: entry.player.name, size: 34)
             VStack(alignment: .leading, spacing: 2) {
-                Text(entry.player.name)
-                    .font(.body.weight(.medium))
+                HStack(spacing: 6) {
+                    Text(entry.player.name)
+                        .font(.body.weight(.medium))
+                    if isYou {
+                        Text("YOU")
+                            .font(.caption2.weight(.bold))
+                            .tracking(0.5)
+                            .foregroundStyle(AppTheme.accent)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(AppTheme.accent.opacity(0.15), in: Capsule())
+                    }
+                }
                 Text("\(entry.player.gamesPlayed) game\(entry.player.gamesPlayed == 1 ? "" : "s")")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
             MoneyText(amount: entry.player.lifetimeNet, role: .net, style: .callout)
+        }
+        .cardBackground()
+    }
+
+    private func yourStatsCard(_ entry: RankedPlayer) -> some View {
+        HStack(spacing: 14) {
+            Monogram(name: entry.player.name, size: 40)
+            VStack(alignment: .leading, spacing: 2) {
+                SectionLabel("Your net")
+                Text("Rank #\(entry.rank) \u{00B7} \(entry.player.gamesPlayed) game\(entry.player.gamesPlayed == 1 ? "" : "s")")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            MoneyText(amount: entry.player.lifetimeNet, role: .net, style: .title3)
         }
         .cardBackground()
     }

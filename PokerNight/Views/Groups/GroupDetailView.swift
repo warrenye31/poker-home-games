@@ -9,7 +9,9 @@ struct GroupDetailView: View {
     @State private var isAddingPlayer = false
     @State private var newPlayerName = ""
     @State private var isPresentingShareSheet = false
+    @State private var isPresentingClaimSheet = false
     @State private var isRefreshing = false
+    @State private var claimedPlayerID: UUID?
 
     var body: some View {
         List {
@@ -25,8 +27,19 @@ struct GroupDetailView: View {
                     HStack(spacing: 14) {
                         Monogram(name: player.name, size: 36)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(player.name)
-                                .font(.body.weight(.medium))
+                            HStack(spacing: 6) {
+                                Text(player.name)
+                                    .font(.body.weight(.medium))
+                                if player.id == claimedPlayerID {
+                                    Text("YOU")
+                                        .font(.caption2.weight(.bold))
+                                        .tracking(0.5)
+                                        .foregroundStyle(AppTheme.accent)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(AppTheme.accent.opacity(0.15), in: Capsule())
+                                }
+                            }
                             Text("\(player.gamesPlayed) game\(player.gamesPlayed == 1 ? "" : "s")")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -91,6 +104,11 @@ struct GroupDetailView: View {
                         Image(systemName: "square.and.arrow.up")
                     }
                 }
+                Button {
+                    isPresentingClaimSheet = true
+                } label: {
+                    Image(systemName: "person.crop.circle.badge.checkmark")
+                }
                 if group.canEdit {
                     Button {
                         isPresentingShareSheet = true
@@ -111,6 +129,9 @@ struct GroupDetailView: View {
         .sheet(isPresented: $isPresentingShareSheet) {
             ShareGroupSheet(group: group)
         }
+        .sheet(isPresented: $isPresentingClaimSheet) {
+            ClaimPlayerSheet(group: group, onClaimChanged: refreshClaim)
+        }
         .alert("New player", isPresented: $isAddingPlayer) {
             TextField("Name", text: $newPlayerName)
             Button("Cancel", role: .cancel) { newPlayerName = "" }
@@ -126,6 +147,7 @@ struct GroupDetailView: View {
         }
         .onAppear {
             appState.selectedGroup = group
+            refreshClaim()
             if group.role == .viewer {
                 Task { await refresh() }
                 GroupSyncService.shared.startRealtimeSync(groupId: group.id, context: modelContext)
@@ -146,6 +168,11 @@ struct GroupDetailView: View {
         isRefreshing = true
         defer { isRefreshing = false }
         try? await GroupSyncService.shared.pullSnapshot(groupId: group.id, context: modelContext)
+        refreshClaim()
+    }
+
+    private func refreshClaim() {
+        claimedPlayerID = PlayerClaimStore.validClaimedPlayerID(for: group)
     }
 }
 

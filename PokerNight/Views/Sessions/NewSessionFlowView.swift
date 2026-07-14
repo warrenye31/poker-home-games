@@ -2,7 +2,10 @@ import SwiftUI
 import SwiftData
 
 private enum SessionFlowStep: Hashable {
-    case live, end, settlement
+    case review(NewSessionDraft)
+    case live(Session)
+    case end(Session)
+    case settlement(Session)
 }
 
 struct NewSessionFlowView: View {
@@ -10,24 +13,24 @@ struct NewSessionFlowView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var path: [SessionFlowStep] = []
-    @State private var session: Session?
 
     var body: some View {
         NavigationStack(path: $path) {
-            SessionSetupView(group: group) { newSession in
-                session = newSession
-                path.append(.live)
+            SessionSetupView(group: group) { draft in
+                path.append(.review(draft))
             }
             .navigationDestination(for: SessionFlowStep.self) { step in
-                if let session {
-                    switch step {
-                    case .live:
-                        LiveSessionView(session: session) { path.append(.end) }
-                    case .end:
-                        EndSessionView(session: session) { path.append(.settlement) }
-                    case .settlement:
-                        SettlementView(session: session, onDone: { dismiss() })
+                switch step {
+                case .review(let draft):
+                    SessionReviewView(group: group, draft: draft) { newSession in
+                        path.append(.live(newSession))
                     }
+                case .live(let session):
+                    LiveSessionView(session: session) { path.append(.end(session)) }
+                case .end(let session):
+                    EndSessionView(session: session) { path.append(.settlement(session)) }
+                case .settlement(let session):
+                    SettlementView(session: session, onDone: { dismiss() })
                 }
             }
         }

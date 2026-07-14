@@ -4,9 +4,12 @@ import SwiftData
 struct GroupDetailView: View {
     @Bindable var group: GameGroup
     @Environment(AppState.self) private var appState
+    @Environment(\.modelContext) private var modelContext
     @State private var isPresentingNewSession = false
     @State private var isAddingPlayer = false
     @State private var newPlayerName = ""
+    @State private var resumingSession: Session?
+    @State private var sessionToDelete: Session?
 
     var body: some View {
         List {
@@ -53,9 +56,7 @@ struct GroupDetailView: View {
                         .cardRowContainer()
                 } else {
                     ForEach(sortedSessions) { session in
-                        NavigationLink(value: session) {
-                            SessionRow(session: session)
-                        }
+                        sessionRow(for: session)
                     }
                     .cardRowContainer()
                 }
@@ -68,6 +69,27 @@ struct GroupDetailView: View {
         .navigationTitle(group.name)
         .navigationDestination(for: Session.self) { session in
             SettlementView(session: session)
+        }
+        .sheet(item: $resumingSession) { session in
+            ResumeSessionFlowView(session: session)
+        }
+        .confirmationDialog(
+            "Delete this session?",
+            isPresented: Binding(
+                get: { sessionToDelete != nil },
+                set: { if !$0 { sessionToDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let session = sessionToDelete {
+                    modelContext.delete(session)
+                }
+                sessionToDelete = nil
+            }
+            Button("Cancel", role: .cancel) { sessionToDelete = nil }
+        } message: {
+            Text("This permanently removes the session and its buy-ins.")
         }
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -102,6 +124,37 @@ struct GroupDetailView: View {
             }
         }
         .onAppear { appState.selectedGroup = group }
+    }
+
+    /// Completed sessions push straight to settlement; active ones re-open the
+    /// live flow instead, so we never show settlement for an unbalanced game.
+    @ViewBuilder
+    private func sessionRow(for session: Session) -> some View {
+        Group {
+            if session.status == .active {
+                Button {
+                    resumingSession = session
+                } label: {
+                    SessionRow(session: session)
+                }
+                .buttonStyle(.plain)
+            } else {
+                NavigationLink(value: session) {
+                    SessionRow(session: session)
+                }
+            }
+        }
+        // No full swipe / destructive role here: those animate the row out on
+        // swipe, but we only want to open the confirmation. Deletion happens
+        // for real once the dialog is confirmed.
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button {
+                sessionToDelete = session
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+            .tint(AppTheme.accent)
+        }
     }
 
     private var sortedSessions: [Session] {

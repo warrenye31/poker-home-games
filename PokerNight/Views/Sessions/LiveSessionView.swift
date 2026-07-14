@@ -5,9 +5,9 @@ struct LiveSessionView: View {
     @Bindable var session: Session
     var onEnd: () -> Void
 
-    @AppStorage("defaultBuyIn") private var defaultBuyIn: Double = 20
     @State private var customAmountEntry: SessionEntry?
     @State private var customAmountText = ""
+    @State private var isEditingSession = false
 
     var body: some View {
         List {
@@ -35,8 +35,8 @@ struct LiveSessionView: View {
                         Spacer()
                         MoneyText(amount: entry.totalBuyIn, style: .callout)
                         Menu {
-                            Button("Add \(CurrencyFormatter.string(from: Decimal(defaultBuyIn)))") {
-                                entry.buyIns.append(BuyIn(amount: Decimal(defaultBuyIn)))
+                            Button("Add \(CurrencyFormatter.string(from: session.standardBuyIn))") {
+                                entry.buyIns.append(BuyIn(amount: session.standardBuyIn))
                             }
                             Button("Custom amount") {
                                 customAmountEntry = entry
@@ -56,12 +56,22 @@ struct LiveSessionView: View {
         }
         .listStyle(.insetGrouped)
         .appScreenBackground()
-        .navigationTitle(session.date.formatted(date: .abbreviated, time: .omitted))
+        .navigationTitle(session.displayName)
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    isEditingSession = true
+                } label: {
+                    Image(systemName: "pencil.circle")
+                }
+            }
             ToolbarItem(placement: .confirmationAction) {
                 Button("End session") { onEnd() }
                     .fontWeight(.semibold)
             }
+        }
+        .sheet(isPresented: $isEditingSession) {
+            EditSessionView(session: session)
         }
         .sensoryFeedback(.impact(weight: .medium), trigger: totalBuyInsCount)
         .alert(

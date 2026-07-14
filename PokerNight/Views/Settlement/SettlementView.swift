@@ -6,6 +6,7 @@ struct SettlementView: View {
     var onDone: (() -> Void)?
 
     @Environment(\.modelContext) private var modelContext
+    @State private var isEditingSession = false
 
     private var transfers: [Transfer] {
         SettlementCalculator.calculate(session: session)
@@ -54,14 +55,24 @@ struct SettlementView: View {
         }
         .listStyle(.insetGrouped)
         .appScreenBackground()
-        .navigationTitle("Settlement")
+        .navigationTitle(session.displayName)
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    isEditingSession = true
+                } label: {
+                    Image(systemName: "pencil.circle")
+                }
+            }
             if let onDone {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done", action: onDone)
                         .fontWeight(.semibold)
                 }
             }
+        }
+        .sheet(isPresented: $isEditingSession) {
+            EditSessionView(session: session)
         }
     }
 
@@ -114,7 +125,7 @@ struct SettlementView: View {
     }
 
     private var summaryText: String {
-        var lines = ["\(session.date.formatted(date: .abbreviated, time: .omitted)) settlement:"]
+        var lines = ["\(session.displayName) settlement:"]
         for transfer in transfers {
             let paidSuffix = payment(for: transfer).isPaid ? " (paid)" : ""
             lines.append("\(transfer.from.name) pays \(transfer.to.name) \(CurrencyFormatter.string(from: transfer.amount))\(paidSuffix)")

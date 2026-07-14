@@ -116,7 +116,7 @@ private struct SessionRow: View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
-                    Text(session.date.formatted(date: .abbreviated, time: .omitted))
+                    Text(session.displayName)
                         .font(.body.weight(.semibold))
                     if session.status == .active {
                         LivePill()

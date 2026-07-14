@@ -3,11 +3,15 @@ import SwiftData
 
 struct SessionSetupView: View {
     let group: GameGroup
-    var onStart: (Session) -> Void
+    var onNext: (NewSessionDraft) -> Void
 
-    @Environment(\.modelContext) private var modelContext
     @AppStorage("defaultBuyIn") private var defaultBuyIn: Double = 20
+    @State private var name = ""
     @State private var date = Date.now
+    @State private var location = ""
+    @State private var smallBlindText = ""
+    @State private var bigBlindText = ""
+    @State private var standardBuyInText = ""
     @State private var usesBank = false
     @State private var bankPlayer: Player?
     @State private var selectedPlayerIDs = Set<PersistentIdentifier>()
@@ -16,7 +20,11 @@ struct SessionSetupView: View {
     var body: some View {
         Form {
             Section {
+                TextField("Session name (optional)", text: $name)
+                    .listRowBackground(AppTheme.surface)
                 DatePicker("Date", selection: $date, displayedComponents: .date)
+                    .listRowBackground(AppTheme.surface)
+                TextField("Location (optional)", text: $location)
                     .listRowBackground(AppTheme.surface)
                 Toggle("Use a bank", isOn: $usesBank)
                     .listRowBackground(AppTheme.surface)
@@ -31,6 +39,44 @@ struct SessionSetupView: View {
                 }
             } header: {
                 SectionLabel("Details")
+            }
+
+            Section {
+                HStack {
+                    Text("Small blind")
+                    Spacer()
+                    TextField("Optional", text: $smallBlindText)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .font(AppTheme.money())
+                        .monospacedDigit()
+                        .frame(width: 100)
+                }
+                .listRowBackground(AppTheme.surface)
+                HStack {
+                    Text("Big blind")
+                    Spacer()
+                    TextField("Optional", text: $bigBlindText)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .font(AppTheme.money())
+                        .monospacedDigit()
+                        .frame(width: 100)
+                }
+                .listRowBackground(AppTheme.surface)
+                HStack {
+                    Text("Standard buy-in")
+                    Spacer()
+                    TextField("Amount", text: $standardBuyInText)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .font(AppTheme.money())
+                        .monospacedDigit()
+                        .frame(width: 100)
+                }
+                .listRowBackground(AppTheme.surface)
+            } header: {
+                SectionLabel("Stakes")
             }
 
             Section {
@@ -76,9 +122,16 @@ struct SessionSetupView: View {
         .navigationTitle("New session")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("Start") { start() }
+                Button("Next") { next() }
                     .fontWeight(.semibold)
                     .disabled(selectedPlayerIDs.count < 2 || (usesBank && bankPlayer == nil))
+            }
+        }
+        .onAppear {
+            if standardBuyInText.isEmpty {
+                standardBuyInText = defaultBuyIn.truncatingRemainder(dividingBy: 1) == 0
+                    ? String(Int(defaultBuyIn))
+                    : String(defaultBuyIn)
             }
         }
     }
@@ -96,15 +149,18 @@ struct SessionSetupView: View {
         }
     }
 
-    private func start() {
-        let session = Session(date: date, usesBank: usesBank, bankPlayer: bankPlayer)
-        modelContext.insert(session)
-        group.sessions.append(session)
-        for player in selectedPlayers {
-            let entry = SessionEntry(player: player)
-            entry.buyIns.append(BuyIn(amount: Decimal(defaultBuyIn)))
-            session.entries.append(entry)
-        }
-        onStart(session)
+    private func next() {
+        let draft = NewSessionDraft(
+            name: name.trimmingCharacters(in: .whitespaces),
+            date: date,
+            location: location.trimmingCharacters(in: .whitespaces),
+            smallBlind: Decimal(string: smallBlindText),
+            bigBlind: Decimal(string: bigBlindText),
+            standardBuyIn: Decimal(string: standardBuyInText) ?? Decimal(defaultBuyIn),
+            usesBank: usesBank,
+            bankPlayer: bankPlayer,
+            players: selectedPlayers
+        )
+        onNext(draft)
     }
 }

@@ -62,7 +62,8 @@ final class GroupSyncService {
             id: group.id,
             name: group.name,
             createdDate: group.createdDate,
-            adminId: userId
+            adminId: userId,
+            adminPlayerId: group.adminPlayerID
         )
         let remoteGroup: RemoteGroup = try await client
             .from("groups")
@@ -127,6 +128,7 @@ final class GroupSyncService {
 
         group.isShared = true
         group.joinCode = remoteGroup.joinCode
+        group.adminPlayerID = remoteGroup.adminPlayerId
         group.lastSyncedAt = .now
     }
 
@@ -225,6 +227,7 @@ final class GroupSyncService {
         group.role = .viewer
         group.isShared = true
         group.joinCode = remoteGroup.joinCode
+        group.adminPlayerID = remoteGroup.adminPlayerId
         group.lastSyncedAt = .now
 
         var playersByID: [UUID: Player] = [:]

@@ -14,6 +14,10 @@ struct RemoteGroup: Codable {
     var createdDate: Date
     var adminId: UUID
     var joinCode: String
+    /// The player the group creator has designated as themselves — the one
+    /// identity every device must treat as reserved and unclaimable by anyone
+    /// else. `nil` until the admin picks one.
+    var adminPlayerId: UUID?
 }
 
 /// Insert/upsert payload for a group. `joinCode` is deliberately omitted: the
@@ -27,6 +31,9 @@ struct RemoteGroupUpsert: Encodable {
     var name: String
     var createdDate: Date
     var adminId: UUID
+    /// Unlike `joinCode`, `admin_player_id` has no NOT NULL default, so it's
+    /// safe to send an explicit `nil` here — it just clears the reservation.
+    var adminPlayerId: UUID?
 }
 
 struct RemotePlayer: Codable {

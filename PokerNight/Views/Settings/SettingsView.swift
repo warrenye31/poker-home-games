@@ -4,6 +4,10 @@ struct SettingsView: View {
     @AppStorage("defaultBuyIn") private var defaultBuyIn: Double = 20
     @State private var defaultBuyInText = ""
 
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+    }
+
     private var currencyCode: Binding<String> {
         Binding(
             get: { CurrencySettings.shared.code },
@@ -15,22 +19,11 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    HStack {
-                        Text("Default buy-in")
-                        Spacer()
-                        CursorEndTextField(
-                            placeholder: "Amount",
-                            text: $defaultBuyInText,
-                            keyboardType: .decimalPad,
-                            alignment: .trailing,
-                            style: .money()
-                        )
-                        .frame(width: 90)
+                    MoneyFieldRow(label: "Default buy-in", placeholder: "Amount", text: $defaultBuyInText)
                         .onChange(of: defaultBuyInText) { _, newValue in
                             if let parsed = Double(newValue) { defaultBuyIn = parsed }
                         }
-                    }
-                    .listRowBackground(AppTheme.surface)
+                        .listRowBackground(AppTheme.surface)
                     Picker("Currency", selection: currencyCode) {
                         Text("CAD ($)").tag("CAD")
                         Text("USD ($)").tag("USD")
@@ -43,7 +36,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    LabeledContent("Version", value: "1.0")
+                    LabeledContent("Version", value: appVersion)
                         .listRowBackground(AppTheme.surface)
                 } header: {
                     SectionLabel("About")

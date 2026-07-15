@@ -3,8 +3,6 @@ import SwiftData
 
 struct SessionsHomeView: View {
     @Environment(AppState.self) private var appState
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: \GameGroup.name) private var groups: [GameGroup]
 
     @State private var resumingSession: Session?
     @State private var sessionToDelete: Session?
@@ -15,7 +13,7 @@ struct SessionsHomeView: View {
                 .navigationTitle(appState.selectedGroup?.name ?? "Sessions")
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        groupSwitcher
+                        GroupSwitcherMenu()
                     }
                 }
         }
@@ -41,24 +39,7 @@ struct SessionsHomeView: View {
             .sheet(item: $resumingSession) { session in
                 ResumeSessionFlowView(session: session)
             }
-            .confirmationDialog(
-                "Delete this session?",
-                isPresented: Binding(
-                    get: { sessionToDelete != nil },
-                    set: { if !$0 { sessionToDelete = nil } }
-                ),
-                titleVisibility: .visible
-            ) {
-                Button("Delete", role: .destructive) {
-                    if let session = sessionToDelete {
-                        modelContext.delete(session)
-                    }
-                    sessionToDelete = nil
-                }
-                Button("Cancel", role: .cancel) { sessionToDelete = nil }
-            } message: {
-                Text("This permanently removes the session and its buy-ins.")
-            }
+            .sessionDeleteConfirmation($sessionToDelete)
             .overlay {
                 if sessions.isEmpty {
                     ContentUnavailableView(
@@ -78,69 +59,12 @@ struct SessionsHomeView: View {
         }
     }
 
-    /// Completed sessions push straight to settlement; active ones re-open the
-    /// live flow instead, so we never show settlement for an unbalanced game.
-    @ViewBuilder
     private func sessionRow(for session: Session) -> some View {
-        Group {
-            if session.status == .active {
-                Button {
-                    resumingSession = session
-                } label: {
-                    SessionSummaryRow(session: session)
-                }
-                .buttonStyle(.plain)
-            } else {
-                NavigationLink(value: session) {
-                    SessionSummaryRow(session: session)
-                }
-            }
-        }
-        // Context menu instead of a swipe action: swipe buttons render against
-        // the List row's own frame, which drifts out of alignment with the
-        // custom card background/insets from .cardRowContainer(). A long-press
-        // menu is positioned by the system at the touch point, so it can't
-        // desync from the row it belongs to.
-        .contextMenu {
-            Button(role: .destructive) {
-                sessionToDelete = session
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
-        }
-    }
-
-    private var groupSwitcher: some View {
-        Menu {
-            ForEach(groups) { group in
-                Button(group.name) { appState.selectedGroup = group }
-            }
-        } label: {
-            Image(systemName: "arrow.triangle.2.circlepath")
-        }
-    }
-}
-
-private struct SessionSummaryRow: View {
-    let session: Session
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 8) {
-                    Text(session.displayName)
-                        .font(.body.weight(.semibold))
-                    if session.status == .active {
-                        LivePill()
-                    }
-                }
-                Text("\(session.entries.count) player\(session.entries.count == 1 ? "" : "s")")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            MoneyText(amount: session.totalBuyIns, style: .callout)
-        }
-        .cardBackground()
+        SessionHistoryRow(
+            session: session,
+            subtitle: countLabel(session.entries.count, "player"),
+            resumingSession: $resumingSession,
+            sessionToDelete: $sessionToDelete
+        )
     }
 }

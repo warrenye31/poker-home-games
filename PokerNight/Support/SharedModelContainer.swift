@@ -1,13 +1,10 @@
 import Foundation
 import SwiftData
 
-/// Single source of truth for the SwiftData schema/container, shared between
-/// the app and the widget extension via an App Group container so both
-/// processes read and write the same store.
+/// Single source of truth for the SwiftData schema/container.
 enum SharedModelContainer {
     static let appGroupID = "group.com.waylabsinc.pokernight"
     static let selectedGroupNameKey = "selectedGroupName"
-    static let widgetKind = "LeaderboardWidget"
 
     /// Flag (in the App Group defaults) marking that existing rows have had
     /// fresh stable UUIDs assigned after the `id` column was introduced.

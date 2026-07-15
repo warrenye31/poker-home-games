@@ -85,6 +85,7 @@ struct SessionSetupView: View {
                         group.players.append(player)
                         selectedPlayerIDs.insert(player.persistentModelID)
                         newPlayerName = ""
+                        GroupSyncService.shared.pushSnapshotIfShared(group)
                     }
                     .fontWeight(.semibold)
                     .disabled(newPlayerName.trimmingCharacters(in: .whitespaces).isEmpty)

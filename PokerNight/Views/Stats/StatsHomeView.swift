@@ -4,7 +4,6 @@ import Charts
 
 struct StatsHomeView: View {
     @Environment(AppState.self) private var appState
-    @Query(sort: \GameGroup.name) private var groups: [GameGroup]
     @State private var isPresentingClaimSheet = false
     @State private var claimedPlayerID: UUID?
 
@@ -21,7 +20,7 @@ struct StatsHomeView: View {
                                 Image(systemName: "person.crop.circle.badge.checkmark")
                             }
                         }
-                        groupSwitcher
+                        GroupSwitcherMenu()
                     }
                 }
                 .sheet(isPresented: $isPresentingClaimSheet) {
@@ -90,36 +89,11 @@ struct StatsHomeView: View {
     }
 
     private func standingRow(_ entry: RankedPlayer) -> some View {
-        let isYou = entry.player.id == claimedPlayerID
-        return HStack(spacing: 12) {
-            Text("\(entry.rank)")
-                .font(AppTheme.money(.footnote))
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-                .frame(width: 18, alignment: .trailing)
-            Monogram(name: entry.player.name, size: 34)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(entry.player.name)
-                        .font(.body.weight(.medium))
-                    if isYou {
-                        Text("YOU")
-                            .font(.caption2.weight(.bold))
-                            .tracking(0.5)
-                            .foregroundStyle(AppTheme.accent)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(AppTheme.accent.opacity(0.15), in: Capsule())
-                    }
-                }
-                Text("\(entry.player.gamesPlayed) game\(entry.player.gamesPlayed == 1 ? "" : "s")")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            MoneyText(amount: entry.player.lifetimeNet, role: .net, style: .callout)
-        }
-        .cardBackground()
+        PlayerStandingRow(
+            player: entry.player,
+            isYou: entry.player.id == claimedPlayerID,
+            rank: entry.rank
+        )
     }
 
     private func yourStatsCard(_ entry: RankedPlayer) -> some View {
@@ -127,7 +101,7 @@ struct StatsHomeView: View {
             Monogram(name: entry.player.name, size: 40)
             VStack(alignment: .leading, spacing: 2) {
                 SectionLabel("Your net")
-                Text("Rank #\(entry.rank) \u{00B7} \(entry.player.gamesPlayed) game\(entry.player.gamesPlayed == 1 ? "" : "s")")
+                Text("Rank #\(entry.rank) \u{00B7} \(countLabel(entry.player.gamesPlayed, "game"))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -162,16 +136,6 @@ struct StatsHomeView: View {
                     .font(.caption.weight(.medium))
                     .foregroundStyle(Color.primary)
             }
-        }
-    }
-
-    private var groupSwitcher: some View {
-        Menu {
-            ForEach(groups) { group in
-                Button(group.name) { appState.selectedGroup = group }
-            }
-        } label: {
-            Image(systemName: "arrow.triangle.2.circlepath")
         }
     }
 

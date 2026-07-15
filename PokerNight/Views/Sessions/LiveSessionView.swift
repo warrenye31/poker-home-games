@@ -28,7 +28,7 @@ struct LiveSessionView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(entry.player?.name ?? "Unknown")
                                 .font(.body.weight(.medium))
-                            Text("\(entry.buyIns.count) buy-in\(entry.buyIns.count == 1 ? "" : "s")")
+                            Text(countLabel(entry.buyIns.count, "buy-in"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

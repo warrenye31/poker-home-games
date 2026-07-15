@@ -5,7 +5,7 @@ import Foundation
 /// preference for how to highlight the leaderboard, so there's normally
 /// nothing to reserve or reconcile across devices. Stored in the App Group's
 /// shared UserDefaults (not SwiftData) so it survives independently of any
-/// group/player row and is available to the widget if it ever wants it.
+/// group/player row.
 ///
 /// The one exception is the group creator's own claim: `GameGroup.adminPlayerID`
 /// is synced server-side specifically so no *other* device can claim that same

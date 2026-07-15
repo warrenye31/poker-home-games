@@ -1,7 +1,6 @@
 import Foundation
 import Observation
 import StoreKit
-import WidgetKit
 
 /// Single source of truth for the user's selected currency.
 ///
@@ -27,11 +26,7 @@ final class CurrencySettings {
             code = saved
         } else {
             code = Self.currencyCode(forRegion: Locale.current.region?.identifier)
-            // Widgets shouldn't make network-ish StoreKit calls off the back
-            // of a timeline refresh; the app is what establishes the default.
-            if !(Bundle.main.bundleIdentifier?.hasSuffix(".widget") ?? false) {
-                Task { await CurrencySettings.shared.refineFromStorefront() }
-            }
+            Task { await CurrencySettings.shared.refineFromStorefront() }
         }
     }
 
@@ -39,7 +34,6 @@ final class CurrencySettings {
         guard Self.supportedCodes.contains(newCode), newCode != code else { return }
         code = newCode
         SharedModelContainer.sharedDefaults?.set(newCode, forKey: Self.storageKey)
-        WidgetCenter.shared.reloadTimelines(ofKind: SharedModelContainer.widgetKind)
     }
 
     /// Runs once, only before the user has ever picked a currency in

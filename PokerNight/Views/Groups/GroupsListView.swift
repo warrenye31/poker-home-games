@@ -6,6 +6,7 @@ struct GroupsListView: View {
     @Query(sort: \GameGroup.createdDate, order: .reverse) private var groups: [GameGroup]
     @State private var isPresentingNewGroup = false
     @State private var isPresentingJoinGroup = false
+    @State private var groupToDelete: GameGroup?
 
     var body: some View {
         NavigationStack {
@@ -15,10 +16,41 @@ struct GroupsListView: View {
                         NavigationLink(value: group) {
                             GroupRow(group: group)
                         }
+                        // Context menu, not swipe: swipe buttons misalign
+                        // against the card rows from .cardRowContainer(), and
+                        // deleting a whole group deserves a confirmation —
+                        // same pattern as session rows.
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                groupToDelete = group
+                            } label: {
+                                Label(group.role == .viewer ? "Leave group" : "Delete", systemImage: "trash")
+                            }
+                        }
                     }
-                    .onDelete(perform: deleteGroups)
                     .cardRowContainer()
                 }
+            }
+            .confirmationDialog(
+                groupToDelete?.role == .viewer ? "Leave this group?" : "Delete this group?",
+                isPresented: Binding(
+                    get: { groupToDelete != nil },
+                    set: { if !$0 { groupToDelete = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button(groupToDelete?.role == .viewer ? "Leave" : "Delete", role: .destructive) {
+                    if let group = groupToDelete {
+                        GroupSyncService.shared.leaveGroup(group)
+                        modelContext.delete(group)
+                    }
+                    groupToDelete = nil
+                }
+                Button("Cancel", role: .cancel) { groupToDelete = nil }
+            } message: {
+                Text(groupToDelete?.role == .viewer
+                    ? "This removes the group from your device. The host's data isn't affected."
+                    : "This permanently removes the group, its players, and all sessions.")
             }
             .listStyle(.insetGrouped)
             .appScreenBackground()
@@ -58,13 +90,6 @@ struct GroupsListView: View {
         }
     }
 
-    private func deleteGroups(at offsets: IndexSet) {
-        for index in offsets {
-            let group = groups[index]
-            GroupSyncService.shared.leaveGroup(group)
-            modelContext.delete(group)
-        }
-    }
 }
 
 private struct GroupRow: View {
@@ -85,8 +110,7 @@ private struct GroupRow: View {
     }
 
     private var subtitle: String {
-        let count = group.players.count
-        let playerText = "\(count) player\(count == 1 ? "" : "s")"
+        let playerText = countLabel(group.players.count, "player")
         if let last = group.sessions.map(\.date).max() {
             return "\(playerText) \u{00B7} last played \(last.formatted(date: .abbreviated, time: .omitted))"
         }

@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import WidgetKit
 
 struct EndSessionView: View {
     @Bindable var session: Session
@@ -64,7 +63,6 @@ struct EndSessionView: View {
                     guard session.isBalanced, !isFinishing else { return }
                     isFinishing = true
                     session.status = .completed
-                    WidgetCenter.shared.reloadTimelines(ofKind: SharedModelContainer.widgetKind)
                     if let group = session.group {
                         GroupSyncService.shared.pushSnapshotIfShared(group)
                     }
@@ -128,11 +126,7 @@ struct EndSessionView: View {
 
     private func statColumn(title: String, amount: Decimal, role: MoneyText.Role) -> some View {
         VStack(spacing: 4) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .tracking(1)
-                .textCase(.uppercase)
-                .foregroundStyle(.secondary)
+            SectionLabel(title)
             MoneyText(amount: amount, role: role, style: .title2)
         }
         .frame(maxWidth: .infinity)

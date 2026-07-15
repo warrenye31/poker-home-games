@@ -26,30 +26,7 @@ struct GroupDetailView: View {
 
             Section {
                 ForEach(group.players) { player in
-                    HStack(spacing: 14) {
-                        Monogram(name: player.name, size: 36)
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 6) {
-                                Text(player.name)
-                                    .font(.body.weight(.medium))
-                                if player.id == claimedPlayerID {
-                                    Text("YOU")
-                                        .font(.caption2.weight(.bold))
-                                        .tracking(0.5)
-                                        .foregroundStyle(AppTheme.accent)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(AppTheme.accent.opacity(0.15), in: Capsule())
-                                }
-                            }
-                            Text("\(player.gamesPlayed) game\(player.gamesPlayed == 1 ? "" : "s")")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        MoneyText(amount: player.lifetimeNet, role: .net, style: .callout)
-                    }
-                    .cardBackground()
+                    PlayerStandingRow(player: player, isYou: player.id == claimedPlayerID)
                 }
                 .cardRowContainer()
 
@@ -97,24 +74,7 @@ struct GroupDetailView: View {
         .sheet(item: $resumingSession) { session in
             ResumeSessionFlowView(session: session)
         }
-        .confirmationDialog(
-            "Delete this session?",
-            isPresented: Binding(
-                get: { sessionToDelete != nil },
-                set: { if !$0 { sessionToDelete = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            Button("Delete", role: .destructive) {
-                if let session = sessionToDelete {
-                    modelContext.delete(session)
-                }
-                sessionToDelete = nil
-            }
-            Button("Cancel", role: .cancel) { sessionToDelete = nil }
-        } message: {
-            Text("This permanently removes the session and its buy-ins.")
-        }
+        .sessionDeleteConfirmation($sessionToDelete)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if !group.sessions.isEmpty {
@@ -181,35 +141,13 @@ struct GroupDetailView: View {
         }
     }
 
-    /// Completed sessions push straight to settlement; active ones re-open the
-    /// live flow instead, so we never show settlement for an unbalanced game.
-    @ViewBuilder
     private func sessionRow(for session: Session) -> some View {
-        Group {
-            if session.status == .active {
-                Button {
-                    resumingSession = session
-                } label: {
-                    SessionRow(session: session)
-                }
-                .buttonStyle(.plain)
-            } else {
-                NavigationLink(value: session) {
-                    SessionRow(session: session)
-                }
-            }
-        }
-        // No full swipe / destructive role here: those animate the row out on
-        // swipe, but we only want to open the confirmation. Deletion happens
-        // for real once the dialog is confirmed.
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button {
-                sessionToDelete = session
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
-            .tint(AppTheme.accent)
-        }
+        SessionHistoryRow(
+            session: session,
+            subtitle: session.usesBank ? "Bank \u{00B7} \(session.bankPlayer?.name ?? "\u{2014}")" : "No bank",
+            resumingSession: $resumingSession,
+            sessionToDelete: $sessionToDelete
+        )
     }
 
     private var sortedSessions: [Session] {
@@ -262,30 +200,6 @@ private struct ViewerSyncBanner: View {
                     Image(systemName: "arrow.clockwise")
                 }
             }
-        }
-        .cardBackground()
-    }
-}
-
-private struct SessionRow: View {
-    let session: Session
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 8) {
-                    Text(session.displayName)
-                        .font(.body.weight(.semibold))
-                    if session.status == .active {
-                        LivePill()
-                    }
-                }
-                Text(session.usesBank ? "Bank \u{00B7} \(session.bankPlayer?.name ?? "\u{2014}")" : "No bank")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            MoneyText(amount: session.totalBuyIns, style: .callout)
         }
         .cardBackground()
     }

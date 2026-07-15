@@ -114,6 +114,9 @@ struct ShareGroupSheet: View {
         do {
             _ = try await GroupSyncService.shared.shareGroup(group)
         } catch {
+            #if DEBUG
+            print("[Sync] share failed: \(error)")
+            #endif
             errorMessage = friendlyMessage(for: error)
         }
     }

@@ -1,6 +1,5 @@
 import Foundation
 import Observation
-import WidgetKit
 
 @Observable
 final class AppState {
@@ -10,7 +9,6 @@ final class AppState {
                 selectedGroup?.name,
                 forKey: SharedModelContainer.selectedGroupNameKey
             )
-            WidgetCenter.shared.reloadTimelines(ofKind: SharedModelContainer.widgetKind)
         }
     }
 }

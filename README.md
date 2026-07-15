@@ -15,16 +15,12 @@ No gameplay tracking, no payments, no ads.
 1. `brew install xcodegen` (skip if already installed)
 2. From this folder: `xcodegen generate`
 3. Open `PokerNight.xcodeproj`
-4. In Signing & Capabilities (for **both** the `PokerNight` and `PokerNightWidgetExtension`
-   targets), pick your own team — Automatic signing should create the `iCloud.com.pokernight.app`
-   and `group.com.pokernight.app` App Group containers the first time it provisions each target.
-   If Xcode complains it can't create the App Group automatically, add it manually once from the
-   target's Signing & Capabilities tab ("+ Capability" → App Groups → `group.com.pokernight.app`)
-   before building.
-5. Pick the `PokerNight` scheme (not the widget scheme) and run on a simulator or device.
-6. To see the home-screen widget: run the app once, open a group so it becomes the "last selected"
-   group, then add the widget from the home screen (long-press → Edit Home Screen → +) and pick
-   Poker Night's Leaderboard widget.
+4. In Signing & Capabilities for the `PokerNight` target, pick your own team — Automatic signing
+   should create the `group.com.waylabsinc.pokernight` App Group container the first time it
+   provisions the target. If Xcode complains it can't create the App Group automatically, add it
+   manually once from the target's Signing & Capabilities tab ("+ Capability" → App Groups →
+   `group.com.waylabsinc.pokernight`) before building.
+5. Run the `PokerNight` scheme on a simulator or device.
 
 Re-run `xcodegen generate` any time `project.yml` changes or you add/remove source files.
 
@@ -48,34 +44,7 @@ Re-run `xcodegen generate` any time `project.yml` changes or you add/remove sour
 - **First-run onboarding** — a skippable 3-screen walkthrough shown once when there are zero groups
 - **Card-based UI** — charcoal cards with a red left-edge accent across Groups, Session history,
   Sessions, and Stats, replacing the earlier stock `List` row look
-- **Home-screen widget** — a Leaderboard widget (medium/large) showing standings for whichever
-  group you last had open in the app
+- **Group sharing** — an admin can publish a group to Supabase and share a join code; other
+  devices join as read-only viewers with pull-to-refresh and best-effort Realtime updates
 - **App icon** — a black/red poker-chip-and-spade icon (generated programmatically; see
   `PokerNight/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png`)
-
-## Not yet built (see the roadmap from planning)
-
-- Interactive/configurable widget (choosing a group from the widget itself rather than mirroring
-  the app's last-selected group)
-
-## A note on this session's changes
-
-The card-row restyle, haptics, and onboarding flow are plain SwiftUI/SwiftData changes consistent
-with patterns already used elsewhere in this codebase — reasonably high confidence they build.
-
-The **widget extension is the riskiest addition** and hasn't been build-verified — there's no Mac/
-Xcode available in the environment that wrote it. Specifically:
-
-- `project.yml` now declares a second target (`PokerNightWidgetExtension`) sharing
-  `PokerNight/Models` and a few `Support` files as source paths across both targets. This is a
-  supported XcodeGen pattern, but hasn't been run through `xcodegen generate` here.
-- The app and widget now open the same SwiftData store via `groupContainer: .identifier(...)`
-  (`PokerNight/Support/SharedModelContainer.swift`) — the shared-store + CloudKit + widget
-  combination is the same shape as Apple's "Backyard Birds" sample, but double-check it against
-  current SwiftData docs if it throws a container-configuration error at runtime.
-- The last-selected group name is persisted to `UserDefaults(suiteName: "group.com.pokernight.app")`
-  from `AppState` and read back by the widget's `TimelineProvider` — if group names aren't unique
-  across a user's groups this lookup could pick the wrong one, though that's an existing edge case
-  (group names aren't enforced unique anywhere in the model).
-
-Worth a real build + widget-on-device pass before relying on it.

@@ -48,3 +48,14 @@ Re-run `xcodegen generate` any time `project.yml` changes or you add/remove sour
   devices join as read-only viewers with pull-to-refresh and best-effort Realtime updates
 - **App icon** — a black/red poker-chip-and-spade icon (generated programmatically; see
   `PokerNight/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png`)
+
+## Legal
+
+- **[Privacy Policy](https://warrenye31.github.io/poker-home-games/privacy.html)**
+- **[Terms of Use](https://warrenye31.github.io/poker-home-games/terms.html)**
+
+Both are served by GitHub Pages from `docs/`, which is also where the App Store Connect listing
+points. The `.html` sources render as raw markup if you open them in the repo file browser — use the
+links above to read them as pages.
+
+Questions: <pokernight@waylabs.com>

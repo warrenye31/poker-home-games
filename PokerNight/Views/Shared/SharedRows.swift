@@ -175,6 +175,75 @@ extension View {
     func sessionDeleteConfirmation(_ sessionToDelete: Binding<Session?>) -> some View {
         modifier(SessionDeleteConfirmation(sessionToDelete: sessionToDelete))
     }
+
+    /// Attaches the shared group delete/leave confirmation, driven by a
+    /// `GameGroup?` binding. Reached from two places — the group list's context
+    /// menu and the button at the bottom of the group screen — which is exactly
+    /// why the wording and the cleanup live here rather than at each call site.
+    ///
+    /// `onDeleted` runs *after* the model is removed; the detail screen uses it
+    /// to pop, since it holds the group and can't outlive it.
+    func groupDeleteConfirmation(
+        _ groupToDelete: Binding<GameGroup?>,
+        onDeleted: @escaping () -> Void = {}
+    ) -> some View {
+        modifier(GroupDeleteConfirmation(groupToDelete: groupToDelete, onDeleted: onDeleted))
+    }
+}
+
+/// Shared confirmation for deleting (admin) or leaving (viewer) a group.
+private struct GroupDeleteConfirmation: ViewModifier {
+    @Binding var groupToDelete: GameGroup?
+    let onDeleted: () -> Void
+    @Environment(\.modelContext) private var modelContext
+
+    func body(content: Content) -> some View {
+        content.confirmationDialog(
+            groupToDelete?.role == .viewer ? "Leave this group?" : "Delete this group?",
+            isPresented: Binding(
+                get: { groupToDelete != nil },
+                set: { if !$0 { groupToDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button(groupToDelete?.role == .viewer ? "Leave" : "Delete", role: .destructive) {
+                if let group = groupToDelete {
+                    // Viewer: drop this device's membership. Admin: delete the
+                    // row for everyone — a local-only delete would leave the
+                    // group alive on every device that joined it.
+                    GroupSyncService.shared.leaveGroup(group)
+                    GroupSyncService.shared.deleteRemoteGroup(group)
+                    groupToDelete = nil
+                    // Order matters: let the caller unmount (the detail screen
+                    // pops) before the model disappears, or a view still holding
+                    // this group faults on its next render. The local delete is
+                    // deferred one turn so the pop is already in flight.
+                    onDeleted()
+                    DispatchQueue.main.async {
+                        modelContext.delete(group)
+                    }
+                } else {
+                    groupToDelete = nil
+                }
+            }
+            Button("Cancel", role: .cancel) { groupToDelete = nil }
+        } message: {
+            Text(message)
+        }
+    }
+
+    /// Deleting a *shared* group reaches other people's phones, so say so —
+    /// "permanently removes the group" undersells it once viewers have joined.
+    private var message: String {
+        guard let group = groupToDelete else { return "" }
+        if group.role == .viewer {
+            return "This removes the group from your device. The host's data isn't affected."
+        }
+        if group.isShared {
+            return "This permanently removes the group, its players, and all sessions — for everyone you invited, too. Their copy will stop working."
+        }
+        return "This permanently removes the group, its players, and all sessions."
+    }
 }
 
 // MARK: - Group switcher
@@ -186,11 +255,29 @@ struct GroupSwitcherMenu: View {
 
     var body: some View {
         Menu {
+            // A checkmark on the active row: a bare list of names doesn't say
+            // which one you're looking at.
             ForEach(groups) { group in
-                Button(group.name) { appState.selectedGroup = group }
+                Button {
+                    appState.selectedGroup = group
+                } label: {
+                    Label(
+                        group.name,
+                        systemImage: appState.selectedGroup?.id == group.id ? "checkmark" : ""
+                    )
+                }
             }
         } label: {
-            Image(systemName: "arrow.triangle.2.circlepath")
+            // Names the current group with a chevron, rather than the old
+            // `arrow.triangle.2.circlepath` — which is the *refresh* glyph and
+            // read as "sync this", hiding the fact that groups are switchable.
+            HStack(spacing: 4) {
+                Text(appState.selectedGroup?.name ?? "Select group")
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption2.weight(.semibold))
+            }
         }
     }
 }

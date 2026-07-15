@@ -142,7 +142,10 @@ struct StatsHomeView: View {
     private struct RankedPlayer: Identifiable {
         let rank: Int
         let player: Player
-        var id: PersistentIdentifier { player.persistentModelID }
+        /// `player.id`, not `persistentModelID`: the latter is reassigned when a
+        /// newly-inserted model is first saved, which would churn ForEach/Chart
+        /// identity mid-render. See `GameGroup.id`.
+        var id: UUID { player.id }
         var netValue: Double { Double(truncating: player.lifetimeNet as NSNumber) }
     }
 

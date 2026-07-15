@@ -44,14 +44,6 @@ struct SettlementView: View {
             } header: {
                 SectionLabel(session.usesBank ? "Bank settlement" : "Who pays who")
             }
-
-            Section {
-                ShareLink(item: summaryText) {
-                    Label("Share summary", systemImage: "square.and.arrow.up")
-                        .font(.body.weight(.medium))
-                }
-                .listRowBackground(AppTheme.surface)
-            }
         }
         .listStyle(.insetGrouped)
         .appScreenBackground()
@@ -90,14 +82,23 @@ struct SettlementView: View {
                 Image(systemName: payment.isPaid ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
                     .foregroundStyle(payment.isPaid ? AppTheme.accent : Color.secondary.opacity(0.5))
-                HStack(spacing: 6) {
-                    Text(transfer.from.name)
-                    Image(systemName: "arrow.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    Text(transfer.to.name)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(transfer.from.name)
+                        Image(systemName: "arrow.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text(transfer.to.name)
+                    }
+                    .font(.body.weight(.medium))
+                    // Bank sessions list each player twice, once per direction;
+                    // without this they're two identical-looking rows.
+                    if let note = transfer.note {
+                        Text(note)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                .font(.body.weight(.medium))
                 .foregroundStyle(payment.isPaid ? Color.secondary : Color.primary)
                 .strikethrough(payment.isPaid)
                 Spacer()
@@ -130,12 +131,4 @@ struct SettlementView: View {
         return created
     }
 
-    private var summaryText: String {
-        var lines = ["\(session.displayName) settlement:"]
-        for transfer in transfers {
-            let paidSuffix = payment(for: transfer).isPaid ? " (paid)" : ""
-            lines.append("\(transfer.from.name) pays \(transfer.to.name) \(CurrencyFormatter.string(from: transfer.amount))\(paidSuffix)")
-        }
-        return lines.joined(separator: "\n")
-    }
 }

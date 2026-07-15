@@ -5,7 +5,15 @@ struct EndSessionView: View {
     @Bindable var session: Session
     var onFinish: () -> Void
 
-    @State private var cashOutText: [PersistentIdentifier: String] = [:]
+    /// Keyed by `SessionEntry.id` (a stable UUID), **not** `persistentModelID`.
+    /// SwiftData hands a newly-inserted model a temporary `PersistentIdentifier`
+    /// and remaps it to a permanent one when the context saves — and this screen
+    /// writes `entry.cashOut` on every keystroke, so a save can land mid-typing.
+    /// After the remap every key here is stale, every lookup returns nil, and the
+    /// whole column of fields blanks at once while the summary still totals the
+    /// model values. See `GameGroup.id`: persistentModelID is local-only and
+    /// must not be used as a durable key.
+    @State private var cashOutText: [UUID: String] = [:]
     @State private var isFinishing = false
 
     var body: some View {
@@ -37,7 +45,7 @@ struct EndSessionView: View {
                         .frame(width: 96)
                         .disabled(!canEdit)
                         .inputFieldStyle()
-                        .onChange(of: cashOutText[entry.persistentModelID] ?? "") { _, newValue in
+                        .onChange(of: cashOutText[entry.id] ?? "") { _, newValue in
                             entry.cashOut = Decimal(string: newValue)
                         }
                     }
@@ -96,9 +104,9 @@ struct EndSessionView: View {
     /// above still totals the stale model value, e.g. showing "$100 over the
     /// pot" with every field visibly empty.
     private func seedCashOutTextFromModel() {
-        for entry in session.entries where cashOutText[entry.persistentModelID] == nil {
+        for entry in session.entries where cashOutText[entry.id] == nil {
             if let cashOut = entry.cashOut {
-                cashOutText[entry.persistentModelID] = "\(cashOut)"
+                cashOutText[entry.id] = "\(cashOut)"
             }
         }
     }
@@ -179,8 +187,8 @@ struct EndSessionView: View {
     /// made new digits land before the existing ones).
     private func binding(for entry: SessionEntry) -> Binding<String> {
         Binding(
-            get: { cashOutText[entry.persistentModelID] ?? "" },
-            set: { cashOutText[entry.persistentModelID] = $0 }
+            get: { cashOutText[entry.id] ?? "" },
+            set: { cashOutText[entry.id] = $0 }
         )
     }
 }

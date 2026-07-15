@@ -107,6 +107,13 @@ struct ShareGroupSheet: View {
     }
 
     private func shareIfNeeded(force: Bool = false) async {
+        // Backstop for the disabled toolbar button. Publishing without
+        // admin_player_id would leave the host's own seat claimable by the first
+        // viewer to open the group — see GameGroup.canShare.
+        guard group.canShare else {
+            errorMessage = "Pick which player is you before inviting people."
+            return
+        }
         guard force || group.joinCode == nil else { return }
         isWorking = true
         errorMessage = nil
@@ -117,14 +124,7 @@ struct ShareGroupSheet: View {
             #if DEBUG
             print("[Sync] share failed: \(error)")
             #endif
-            errorMessage = friendlyMessage(for: error)
+            errorMessage = SyncErrorMessage.text(for: error, action: .share)
         }
-    }
-
-    private func friendlyMessage(for error: Error) -> String {
-        if error is SupabaseError {
-            return "Sharing isn't configured on this build."
-        }
-        return "Couldn't reach the server. Check your connection and try again — a group that hasn't been shared in a while can also take a few extra seconds to wake up."
     }
 }

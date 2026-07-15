@@ -85,6 +85,16 @@ private struct OnboardingFeaturesPage: View {
                     title: "Instant settlement",
                     detail: "The minimal set of payouts, computed for you."
                 )
+                OnboardingFeatureRow(
+                    icon: "person.crop.circle.badge.plus",
+                    title: "Invite the table",
+                    detail: "Share a join code — everyone follows along, read-only."
+                )
+                OnboardingFeatureRow(
+                    icon: "person.crop.circle.fill.badge.checkmark",
+                    title: "Say which player is you",
+                    detail: "Pick your name to highlight your own results."
+                )
             }
             .padding(.horizontal, 32)
             Spacer()

@@ -57,4 +57,21 @@ final class GameGroup {
     /// Only the admin device may create/edit players, sessions, and entries.
     /// Viewer devices render everything read-only.
     var canEdit: Bool { role == .admin }
+
+    /// Whether this device may hand out the join code.
+    ///
+    /// The organizer has to say which player they are first. `adminPlayerID` is
+    /// what every viewer reads to know which seat is reserved, so a group shared
+    /// before it's set publishes a roster where the host's own identity is up
+    /// for grabs — the first viewer to open it could claim to be the host.
+    var canShare: Bool { role == .admin && adminPlayerID != nil }
+
+    /// Whether this device may still change which player it claims.
+    ///
+    /// Viewers can always re-pick — their claim is local and affects nobody.
+    /// The organizer is pinned the moment the group is shared: viewers have
+    /// already synced `admin_player_id` and may have claimed seats around it,
+    /// so moving it afterwards would silently reassign who the host is on every
+    /// other device and could free up a seat someone else already took.
+    var canChangeClaimedPlayer: Bool { role == .viewer || !isShared }
 }

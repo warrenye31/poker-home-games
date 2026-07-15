@@ -14,6 +14,10 @@ struct GroupDetailView: View {
     @State private var claimedPlayerID: UUID?
     @State private var resumingSession: Session?
     @State private var sessionToDelete: Session?
+    @State private var playerToRemove: Player?
+    @State private var isEditingRoster = false
+    @State private var groupToDelete: GameGroup?
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         List {
@@ -26,7 +30,37 @@ struct GroupDetailView: View {
 
             Section {
                 ForEach(group.players) { player in
-                    PlayerStandingRow(player: player, isYou: player.id == claimedPlayerID)
+                    HStack(spacing: 10) {
+                        // Sits outside the card, in the row's inset gutter: the
+                        // card's own trailing edge is spoken for by the money
+                        // column, and PlayerStandingRow is shared with the stats
+                        // standings, so it can't grow a remove button of its own.
+                        if isEditingRoster && canRemove(player) {
+                            Button {
+                                playerToRemove = player
+                            } label: {
+                                Image(systemName: "minus.circle.fill")
+                                    .font(.title2)
+                                    .foregroundStyle(.red)
+                                    .accessibilityLabel("Remove \(player.name)")
+                            }
+                            .buttonStyle(.plain)
+                            .transition(.move(edge: .leading).combined(with: .opacity))
+                        }
+                        PlayerStandingRow(player: player, isYou: player.id == claimedPlayerID)
+                    }
+                    // Long-press still works as a shortcut, but Edit above is
+                    // what makes removal discoverable — a context menu is
+                    // invisible until you already know it's there.
+                    .contextMenu {
+                        if canRemove(player) {
+                            Button(role: .destructive) {
+                                playerToRemove = player
+                            } label: {
+                                Label("Remove from group", systemImage: "trash")
+                            }
+                        }
+                    }
                 }
                 .cardRowContainer()
 
@@ -46,10 +80,56 @@ struct GroupDetailView: View {
                     .listRowSeparator(.hidden)
                 }
             } header: {
-                SectionLabel("Roster")
+                HStack {
+                    SectionLabel("Roster")
+                    Spacer()
+                    if group.canEdit && group.players.contains(where: canRemove) {
+                        Button(isEditingRoster ? "Done" : "Edit") {
+                            withAnimation(.snappy(duration: 0.2)) { isEditingRoster.toggle() }
+                        }
+                        .font(.caption.weight(.semibold))
+                        .textCase(nil)
+                    }
+                }
+            } footer: {
+                // Where you change your pick, now that the overflow menu is gone.
+                // Only shown once there's something to state.
+                if let claimedPlayerName {
+                    HStack(spacing: 6) {
+                        Image(systemName: "person.crop.circle.fill.badge.checkmark")
+                        Text("You're \(claimedPlayerName).")
+                        if group.canChangeClaimedPlayer {
+                            Button("Change") { isPresentingClaimSheet = true }
+                                .font(.footnote.weight(.semibold))
+                        } else {
+                            Text("Locked — this group is shared.")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .font(.footnote)
+                }
             }
 
             Section {
+                // In-place entry point, mirroring the roster's "Add player"
+                // pill. The toolbar + does the same job, but a toolbar glyph is
+                // easy to miss when your attention is on the list it fills.
+                if group.canEdit {
+                    HStack {
+                        Spacer()
+                        Button {
+                            isPresentingNewSession = true
+                        } label: {
+                            Label("New session", systemImage: "plus.circle.fill")
+                        }
+                        .buttonStyle(.pill(prominent: sortedSessions.isEmpty))
+                        Spacer()
+                    }
+                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 10, trailing: 16))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
+
                 if sortedSessions.isEmpty {
                     Text("No sessions yet")
                         .foregroundStyle(.secondary)
@@ -64,43 +144,88 @@ struct GroupDetailView: View {
             } header: {
                 SectionLabel("Session history")
             }
+
+            // Bottom of the detail screen is where people look for "get rid of
+            // this thing" — the list's context menu is a shortcut, not a way to
+            // find out the action exists.
+            Section {
+                Button(role: .destructive) {
+                    groupToDelete = group
+                } label: {
+                    HStack {
+                        Spacer()
+                        Label(
+                            group.role == .viewer ? "Leave group" : "Delete group",
+                            systemImage: group.role == .viewer ? "rectangle.portrait.and.arrow.right" : "trash"
+                        )
+                        Spacer()
+                    }
+                }
+            }
+            .listRowBackground(AppTheme.surface)
         }
         .listStyle(.insetGrouped)
         .appScreenBackground()
         .navigationTitle(group.name)
-        .navigationDestination(for: Session.self) { session in
-            SettlementView(session: session)
-        }
+        // No `navigationDestination(for: Session.self)` here on purpose. This
+        // view is pushed inside GroupsListView's NavigationStack, which already
+        // declares one; two registrations for the same type in one stack is
+        // undefined behaviour, and the innermost winning made inbox rows resolve
+        // to the wrong screen and only correct themselves on the way back out.
+        // The root's registration serves this screen's session rows too.
         .sheet(item: $resumingSession) { session in
             ResumeSessionFlowView(session: session)
         }
         .sessionDeleteConfirmation($sessionToDelete)
+        .confirmationDialog(
+            playerToRemove.map { "Remove \($0.name)?" } ?? "Remove player?",
+            isPresented: Binding(
+                get: { playerToRemove != nil },
+                set: { if !$0 { playerToRemove = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Remove", role: .destructive) {
+                if let playerToRemove { removePlayer(playerToRemove) }
+                playerToRemove = nil
+            }
+            Button("Cancel", role: .cancel) { playerToRemove = nil }
+        } message: {
+            Text(removePlayerMessage)
+        }
+        // Pops before the model goes away: this view holds `group` via
+        // @Bindable and would fault on the next render if it outlived it.
+        .groupDeleteConfirmation($groupToDelete) { dismiss() }
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
-                if !group.sessions.isEmpty {
-                    ShareLink(
-                        item: SessionHistoryExport(group: group),
-                        preview: SharePreview("\(group.name) sessions")
-                    ) {
-                        Image(systemName: "square.and.arrow.up")
-                    }
-                }
-                Button {
-                    isPresentingClaimSheet = true
-                } label: {
-                    Image(systemName: "person.crop.circle.badge.checkmark")
-                }
+                // Spelled out rather than left as a glyph: "invite someone to
+                // follow this group" and "add a name to the roster" are different
+                // actions, and every person-shaped icon reads as both. Disabled
+                // until the organizer has said which player they are — the
+                // prompt at the bottom of the screen is what explains why.
                 if group.canEdit {
                     Button {
                         isPresentingShareSheet = true
                     } label: {
-                        Image(systemName: group.isShared ? "person.2.fill" : "person.badge.plus")
+                        Label("Invite", systemImage: "person.crop.circle.badge.plus")
+                            .labelStyle(.titleAndIcon)
                     }
+                    .disabled(!group.canShare)
                     Button {
                         isPresentingNewSession = true
                     } label: {
                         Image(systemName: "plus.circle.fill")
                     }
+                }
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            // Only while unanswered. Once you've picked, this disappears and the
+            // roster footer carries the answer instead — a permanent bar for a
+            // one-time decision is just clutter.
+            if claimedPlayerID == nil && !group.players.isEmpty {
+                ClaimPromptBar(isOrganizer: group.canEdit) {
+                    isPresentingClaimSheet = true
                 }
             }
         }
@@ -161,8 +286,86 @@ struct GroupDetailView: View {
         refreshClaim()
     }
 
+    /// Name of the player this device has claimed, so the roster footer can
+    /// state the current answer ("You're Warren") rather than only the question.
+    private var claimedPlayerName: String? {
+        guard let claimedPlayerID else { return nil }
+        return group.players.first { $0.id == claimedPlayerID }?.name
+    }
+
+    /// Only the organizer removes people, and never themselves — you can't
+    /// delete the identity the whole group is anchored to (viewers read
+    /// `adminPlayerID` to know which seat is reserved), and removing yourself
+    /// mid-game is far more likely a misfire than an intent.
+    private func canRemove(_ player: Player) -> Bool {
+        group.canEdit
+            && player.id != claimedPlayerID
+            && player.id != group.adminPlayerID
+    }
+
+    private var removePlayerMessage: String {
+        guard let playerToRemove else { return "" }
+        let count = playerToRemove.entries.count
+        guard count > 0 else { return "They'll be taken off the roster." }
+        return "This also deletes their buy-ins and results from \(count) session\(count == 1 ? "" : "s")."
+    }
+
+    private func removePlayer(_ player: Player) {
+        guard canRemove(player) else { return }
+        // SwiftData nullifies SessionEntry.player instead of cascading, which
+        // would strand entries belonging to nobody — and `pushSnapshot` silently
+        // drops those, so they'd persist locally while vanishing for viewers.
+        // Delete them outright; their buy-ins cascade from the entry.
+        for entry in player.entries {
+            modelContext.delete(entry)
+        }
+        modelContext.delete(player)
+        // Mirrors the removal (and the orphan sweep) to anyone watching.
+        GroupSyncService.shared.pushSnapshotIfShared(group)
+        refreshClaim()
+    }
+
     private func refreshClaim() {
         claimedPlayerID = PlayerClaimStore.validClaimedPlayerID(for: group)
+    }
+}
+
+/// Bottom prompt asking who this device is, shown only until it's answered.
+///
+/// This replaces a toolbar glyph: "which player are you?" is a question about
+/// identity, and no icon asks a question. For the organizer it also names the
+/// thing it's blocking, since their answer is what unlocks inviting.
+private struct ClaimPromptBar: View {
+    let isOrganizer: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: "person.crop.circle.badge.questionmark")
+                    .font(.title2)
+                    .foregroundStyle(AppTheme.accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Which player are you?")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    Text(isOrganizer
+                         ? "Pick yourself to start inviting people."
+                         : "Pick yourself to highlight your results.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(14)
+            .cardBackground()
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 10)
     }
 }
 

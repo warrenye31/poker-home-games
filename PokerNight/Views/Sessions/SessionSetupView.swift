@@ -14,7 +14,11 @@ struct SessionSetupView: View {
     @State private var buyInEditedManually = false
     @State private var usesBank = false
     @State private var bankPlayer: Player?
-    @State private var selectedPlayerIDs = Set<PersistentIdentifier>()
+    /// Keyed by `Player.id` (stable UUID), not `persistentModelID`: SwiftData
+    /// reassigns the latter when a newly-inserted model is first saved, and a
+    /// player added moments earlier on this very screen is exactly that case —
+    /// the selection would silently empty. See `GameGroup.id`.
+    @State private var selectedPlayerIDs = Set<UUID>()
     @State private var newPlayerName = ""
 
     var body: some View {
@@ -56,7 +60,7 @@ struct SessionSetupView: View {
 
             Section {
                 ForEach(group.players) { player in
-                    let isSelected = selectedPlayerIDs.contains(player.persistentModelID)
+                    let isSelected = selectedPlayerIDs.contains(player.id)
                     Button {
                         toggle(player)
                     } label: {
@@ -83,7 +87,7 @@ struct SessionSetupView: View {
                         guard !trimmed.isEmpty else { return }
                         let player = Player(name: trimmed)
                         group.players.append(player)
-                        selectedPlayerIDs.insert(player.persistentModelID)
+                        selectedPlayerIDs.insert(player.id)
                         newPlayerName = ""
                         GroupSyncService.shared.pushSnapshotIfShared(group)
                     }
@@ -119,7 +123,7 @@ struct SessionSetupView: View {
     }
 
     private var selectedPlayers: [Player] {
-        group.players.filter { selectedPlayerIDs.contains($0.persistentModelID) }
+        group.players.filter { selectedPlayerIDs.contains($0.id) }
     }
 
     /// Tracks manual edits separately from the 100BB auto-fill: once someone
@@ -132,11 +136,11 @@ struct SessionSetupView: View {
     }
 
     private func toggle(_ player: Player) {
-        if selectedPlayerIDs.contains(player.persistentModelID) {
-            selectedPlayerIDs.remove(player.persistentModelID)
+        if selectedPlayerIDs.contains(player.id) {
+            selectedPlayerIDs.remove(player.id)
             if bankPlayer === player { bankPlayer = nil }
         } else {
-            selectedPlayerIDs.insert(player.persistentModelID)
+            selectedPlayerIDs.insert(player.id)
         }
     }
 

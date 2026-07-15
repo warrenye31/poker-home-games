@@ -7,7 +7,10 @@ struct SessionReviewView: View {
     var onCreate: (Session) -> Void
 
     @Environment(\.modelContext) private var modelContext
-    @State private var buyInCounts: [PersistentIdentifier: Int] = [:]
+    /// Keyed by `Player.id` (stable UUID), not `persistentModelID` — see
+    /// `SessionSetupView.selectedPlayerIDs` and `GameGroup.id`. A save landing
+    /// between screens would reset every count back to the default.
+    @State private var buyInCounts: [UUID: Int] = [:]
 
     var body: some View {
         List {
@@ -69,8 +72,8 @@ struct SessionReviewView: View {
             }
         }
         .onAppear {
-            for player in draft.players where buyInCounts[player.persistentModelID] == nil {
-                buyInCounts[player.persistentModelID] = 1
+            for player in draft.players where buyInCounts[player.id] == nil {
+                buyInCounts[player.id] = 1
             }
         }
     }
@@ -80,13 +83,13 @@ struct SessionReviewView: View {
     }
 
     private func count(for player: Player) -> Int {
-        buyInCounts[player.persistentModelID] ?? 1
+        buyInCounts[player.id] ?? 1
     }
 
     private func countBinding(for player: Player) -> Binding<Int> {
         Binding(
             get: { count(for: player) },
-            set: { buyInCounts[player.persistentModelID] = $0 }
+            set: { buyInCounts[player.id] = $0 }
         )
     }
 

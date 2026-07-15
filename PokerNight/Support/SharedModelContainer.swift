@@ -4,7 +4,6 @@ import SwiftData
 /// Single source of truth for the SwiftData schema/container.
 enum SharedModelContainer {
     static let appGroupID = "group.com.waylabsinc.pokernight"
-    static let selectedGroupNameKey = "selectedGroupName"
 
     /// Flag (in the App Group defaults) marking that existing rows have had
     /// fresh stable UUIDs assigned after the `id` column was introduced.

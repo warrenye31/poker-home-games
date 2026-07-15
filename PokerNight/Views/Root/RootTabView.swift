@@ -14,6 +14,9 @@ struct RootTabView: View {
                 .tabItem { Label("Sessions", systemImage: "suit.spade.fill") }
             StatsHomeView()
                 .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
+            // Every other tab is scoped to a single group; this one crosses them.
+            MeHomeView()
+                .tabItem { Label("Me", systemImage: "person.crop.circle.fill") }
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }

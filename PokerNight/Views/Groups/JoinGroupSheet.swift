@@ -68,14 +68,10 @@ struct JoinGroupSheet: View {
             onJoined(group)
             dismiss()
         } catch {
-            errorMessage = friendlyMessage(for: error)
+            #if DEBUG
+            print("[Sync] join failed: \(error)")
+            #endif
+            errorMessage = SyncErrorMessage.text(for: error, action: .join)
         }
-    }
-
-    private func friendlyMessage(for error: Error) -> String {
-        if error is SupabaseError {
-            return "Sharing isn't configured on this build."
-        }
-        return "Couldn't find a group for that code. If it hasn't been opened in a while, the server can take up to 30 seconds to wake up — try again in a moment."
     }
 }

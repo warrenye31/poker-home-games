@@ -58,12 +58,13 @@ final class GroupSyncService {
         guard let client = auth.client else { throw SupabaseError.notConfigured }
         let userId = try await auth.ensureSignedIn()
 
+        // Note the group row goes up without `admin_player_id` — it can't name a
+        // player before the roster below exists. It's written at the end.
         let groupPayload = RemoteGroupUpsert(
             id: group.id,
             name: group.name,
             createdDate: group.createdDate,
-            adminId: userId,
-            adminPlayerId: group.adminPlayerID
+            adminId: userId
         )
         let remoteGroup: RemoteGroup = try await client
             .from("groups")
@@ -126,9 +127,24 @@ final class GroupSyncService {
             keepIds: Set(allEntries.map(\.id)), client: client
         )
 
+        // Now that the roster is on the server, the group may point at one of
+        // its players. Deliberately last: sending this with the group's own
+        // insert fails with `23503 groups_admin_player_id_fkey`, and sending it
+        // before the orphan sweep could name a player the sweep then removes.
+        if remoteGroup.adminPlayerId != group.adminPlayerID {
+            try await client
+                .from("groups")
+                .update(RemoteGroupAdminPlayerUpdate(adminPlayerId: group.adminPlayerID))
+                .eq("id", value: group.id.uuidString)
+                .execute()
+        }
+
         group.isShared = true
         group.joinCode = remoteGroup.joinCode
-        group.adminPlayerID = remoteGroup.adminPlayerId
+        // `adminPlayerID` is deliberately *not* read back here. On the admin
+        // device the local value is the source of truth, and `remoteGroup` is
+        // the pre-update read, so copying it would revert the pick just pushed.
+        // (A viewer's `pullSnapshot` does read it back — there the server wins.)
         group.lastSyncedAt = .now
     }
 
@@ -328,6 +344,41 @@ final class GroupSyncService {
         return entry
     }
 
+    // MARK: - Admin: delete
+
+    /// Deletes a shared group from the server so it stops existing for everyone
+    /// who joined it. Without this an admin's "Delete" is local-only: the row
+    /// survives, and every viewer keeps their copy indefinitely.
+    ///
+    /// Postgres cascades to players, sessions, session_entries, and
+    /// group_members (`on delete cascade`), so this one statement clears the
+    /// group's whole footprint. RLS allows it for the admin alone
+    /// (`groups_delete`: `admin_id = auth.uid()`).
+    ///
+    /// Best-effort by design: the local delete proceeds regardless, matching
+    /// `pushSnapshotIfShared`. A failure here leaves an orphaned remote row
+    /// rather than blocking the user from deleting their own group.
+    func deleteRemoteGroup(_ group: GameGroup) {
+        guard group.role == .admin, group.isShared else { return }
+        let groupId = group.id
+        stopRealtimeSync(groupId: groupId)
+        Task {
+            guard let client = auth.client else { return }
+            do {
+                try await auth.ensureSignedIn()
+                try await client
+                    .from("groups")
+                    .delete()
+                    .eq("id", value: groupId.uuidString)
+                    .execute()
+            } catch {
+                #if DEBUG
+                print("[Sync] remote group delete failed: \(error)")
+                #endif
+            }
+        }
+    }
+
     // MARK: - Viewer: leave
 
     /// Removes this device's membership and stops watching a group it joined.
@@ -338,12 +389,21 @@ final class GroupSyncService {
         stopRealtimeSync(groupId: groupId)
         Task {
             guard let client = auth.client, let userId = auth.currentUserID else { return }
-            try? await client
-                .from("group_members")
-                .delete()
-                .eq("group_id", value: groupId.uuidString)
-                .eq("user_id", value: userId.uuidString)
-                .execute()
+            do {
+                try await client
+                    .from("group_members")
+                    .delete()
+                    .eq("group_id", value: groupId.uuidString)
+                    .eq("user_id", value: userId.uuidString)
+                    .execute()
+            } catch {
+                // Best-effort, like the other fire-and-forget syncs: the local
+                // copy goes regardless. Worst case a stale membership row
+                // lingers, which grants no access on its own.
+                #if DEBUG
+                print("[Sync] leave group failed: \(error)")
+                #endif
+            }
         }
     }
 
@@ -361,9 +421,13 @@ final class GroupSyncService {
                     AnyAction.self,
                     schema: "public",
                     table: "session_entries",
-                    filter: "group_id=eq.\(groupId.uuidString)"
+                    filter: .eq("group_id", value: groupId.uuidString)
                 )
-                try await channel.subscribe()
+                // `subscribeWithError`, not the deprecated `subscribe()`: the
+                // latter doesn't throw, so the catch below was unreachable and a
+                // Realtime failure was swallowed in silence — viewers would sit
+                // on stale data with nothing logged and no fallback triggered.
+                try await channel.subscribeWithError()
                 for await _ in changes {
                     try? await self.pullSnapshot(groupId: groupId, context: context)
                 }

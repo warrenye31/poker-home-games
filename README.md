@@ -28,9 +28,8 @@ Re-run `xcodegen generate` any time `project.yml` changes or you add/remove sour
 
 - **Groups tab** — create/delete groups; each group has its own player roster and session history
 - **Start a session** — set a name, date, location, blinds, and standard buy-in, pick players from
-  the roster (or add new ones on the fly), optionally designate one player as the bank; a review
-  screen then shows the session name and participants with a per-player buy-in count before
-  creating the session
+  the roster (or add new ones on the fly), optionally designate one player as the bank, then create
+  the session immediately (each player starts with one buy-in; add more from the live session)
 - **Edit a session** — change name, date, location, blinds, standard buy-in, or bank at any point
   from the live session or settlement screen
 - **Live session** — track rebuys per player, running pot total, haptic feedback on each buy-in

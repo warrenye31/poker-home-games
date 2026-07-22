@@ -2,7 +2,6 @@ import SwiftUI
 import SwiftData
 
 private enum SessionFlowStep: Hashable {
-    case review(NewSessionDraft)
     case live(Session)
     case end(Session)
     case settlement(Session)
@@ -16,15 +15,11 @@ struct NewSessionFlowView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            SessionSetupView(group: group) { draft in
-                path.append(.review(draft))
+            SessionSetupView(group: group) { session in
+                path.append(.live(session))
             }
             .navigationDestination(for: SessionFlowStep.self) { step in
                 switch step {
-                case .review(let draft):
-                    SessionReviewView(group: group, draft: draft) { newSession in
-                        path.append(.live(newSession))
-                    }
                 case .live(let session):
                     LiveSessionView(session: session) { path.append(.end(session)) }
                 case .end(let session):

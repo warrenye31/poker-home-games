@@ -3,8 +3,9 @@ import SwiftData
 
 struct SessionSetupView: View {
     let group: GameGroup
-    var onNext: (NewSessionDraft) -> Void
+    var onCreate: (Session) -> Void
 
+    @Environment(\.modelContext) private var modelContext
     @AppStorage("defaultBuyIn") private var defaultBuyIn: Double = 20
     @State private var date = Date.now
     @State private var location = ""
@@ -103,7 +104,7 @@ struct SessionSetupView: View {
         .navigationTitle("New session")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("Next") { next() }
+                Button("Create session") { create() }
                     .fontWeight(.semibold)
                     .disabled(selectedPlayerIDs.count < 2 || (usesBank && bankPlayer == nil))
             }
@@ -144,17 +145,25 @@ struct SessionSetupView: View {
         }
     }
 
-    private func next() {
-        let draft = NewSessionDraft(
+    private func create() {
+        let trimmedLocation = location.trimmingCharacters(in: .whitespaces)
+        let session = Session(
             date: date,
-            location: location.trimmingCharacters(in: .whitespaces),
-            smallBlind: Decimal(string: smallBlindText),
-            bigBlind: Decimal(string: bigBlindText),
-            standardBuyIn: Decimal(string: standardBuyInText) ?? Decimal(defaultBuyIn),
+            location: trimmedLocation.isEmpty ? nil : trimmedLocation,
             usesBank: usesBank,
             bankPlayer: bankPlayer,
-            players: selectedPlayers
+            smallBlind: Decimal(string: smallBlindText),
+            bigBlind: Decimal(string: bigBlindText),
+            standardBuyIn: Decimal(string: standardBuyInText) ?? Decimal(defaultBuyIn)
         )
-        onNext(draft)
+        modelContext.insert(session)
+        group.sessions.append(session)
+        for player in selectedPlayers {
+            let entry = SessionEntry(player: player)
+            entry.buyIns.append(BuyIn(amount: session.standardBuyIn))
+            session.entries.append(entry)
+        }
+        GroupSyncService.shared.pushSnapshotIfShared(group)
+        onCreate(session)
     }
 }

@@ -9,6 +9,7 @@ struct GroupDetailView: View {
     @State private var isAddingPlayer = false
     @State private var newPlayerName = ""
     @State private var isPresentingShareSheet = false
+    @State private var isPresentingScreenshotSheet = false
     @State private var isPresentingClaimSheet = false
     @State private var isRefreshing = false
     @State private var claimedPlayerID: UUID?
@@ -110,6 +111,31 @@ struct GroupDetailView: View {
                 }
             }
 
+            // Inviting is the whole point of a *group*, and it used to live
+            // behind a toolbar glyph — the one place nobody looks. It sits under
+            // the roster because that's what it grows: the people already listed
+            // are the ones you're about to hand a code to.
+            if group.canEdit {
+                Section {
+                    Button {
+                        // Not disabled when the organizer hasn't claimed a
+                        // player yet: a dead button teaches nothing. Send them
+                        // to the picker that unblocks it instead.
+                        if group.canShare {
+                            isPresentingShareSheet = true
+                        } else {
+                            isPresentingClaimSheet = true
+                        }
+                    } label: {
+                        InviteFriendsCard(needsClaim: !group.canShare)
+                    }
+                    .buttonStyle(.plain)
+                    .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 4, trailing: 16))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
+            }
+
             Section {
                 // In-place entry point, mirroring the roster's "Add player"
                 // pill. The toolbar + does the same job, but a toolbar glyph is
@@ -198,19 +224,19 @@ struct GroupDetailView: View {
         .groupDeleteConfirmation($groupToDelete) { dismiss() }
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
-                // Spelled out rather than left as a glyph: "invite someone to
-                // follow this group" and "add a name to the roster" are different
-                // actions, and every person-shaped icon reads as both. Disabled
-                // until the organizer has said which player they are — the
-                // prompt at the bottom of the screen is what explains why.
+                // Shares a picture of the standings, not the group itself —
+                // inviting now has a button of its own in the list, and this is
+                // the thing people were doing by hand anyway: screenshotting
+                // this screen and pasting it into the group chat. Pointless with
+                // an empty roster, hence disabled.
                 if group.canEdit {
                     Button {
-                        isPresentingShareSheet = true
+                        isPresentingScreenshotSheet = true
                     } label: {
-                        Label("Invite", systemImage: "person.crop.circle.badge.plus")
-                            .labelStyle(.titleAndIcon)
+                        Image(systemName: "square.and.arrow.up")
                     }
-                    .disabled(!group.canShare)
+                    .disabled(group.players.isEmpty)
+                    .accessibilityLabel("Share a screenshot of the standings")
                     Button {
                         isPresentingNewSession = true
                     } label: {
@@ -234,6 +260,11 @@ struct GroupDetailView: View {
         }
         .sheet(isPresented: $isPresentingShareSheet) {
             ShareGroupSheet(group: group)
+        }
+        .sheet(isPresented: $isPresentingScreenshotSheet) {
+            GroupScreenshotShareSheet(
+                snapshot: GroupShareSnapshot(group: group, claimedPlayerID: claimedPlayerID)
+            )
         }
         .sheet(isPresented: $isPresentingClaimSheet) {
             ClaimPlayerSheet(group: group, onClaimChanged: refreshClaim)
@@ -327,6 +358,44 @@ struct GroupDetailView: View {
 
     private func refreshClaim() {
         claimedPlayerID = PlayerClaimStore.validClaimedPlayerID(for: group)
+    }
+}
+
+/// The group screen's main call to action: a full-width, filled banner rather
+/// than another outlined pill.
+///
+/// Everything else on this screen is a card on charcoal, so the one action that
+/// grows the group is the one thing painted in the accent — you shouldn't have
+/// to read the screen to find it.
+private struct InviteFriendsCard: View {
+    let needsClaim: Bool
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "person.2.fill")
+                .font(.title3)
+                .foregroundStyle(.white)
+                .frame(width: 46, height: 46)
+                .background(Color.white.opacity(0.18), in: Circle())
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Invite your friends")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.white)
+                Text(needsClaim
+                     ? "Pick which player you are first"
+                     : "Send a code so they can follow every game")
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.85))
+            }
+            Spacer(minLength: 8)
+            Image(systemName: "chevron.right")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.white.opacity(0.8))
+        }
+        .padding(.vertical, 18)
+        .padding(.horizontal, 18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 

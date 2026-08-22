@@ -26,7 +26,9 @@ Re-run `xcodegen generate` any time `project.yml` changes or you add/remove sour
 
 ## What's implemented (MVP)
 
-- **Groups tab** — create/delete groups; each group has its own player roster and session history
+- **Groups tab** — create/delete groups; each group has its own player roster and session history.
+  The organizer can rename anyone on the roster (Edit → tap a player, or long-press any row);
+  the change follows the player through every past session and syncs to anyone they invited
 - **Start a session** — set a name, date, location, blinds, and standard buy-in, pick players from
   the roster (or add new ones on the fly), optionally designate one player as the bank, then create
   the session immediately (each player starts with one buy-in; add more from the live session)

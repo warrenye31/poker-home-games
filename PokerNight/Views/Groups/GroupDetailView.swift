@@ -15,6 +15,8 @@ struct GroupDetailView: View {
     @State private var resumingSession: Session?
     @State private var sessionToDelete: Session?
     @State private var playerToRemove: Player?
+    @State private var playerToRename: Player?
+    @State private var renamedPlayerName = ""
     @State private var isEditingRoster = false
     @State private var groupToDelete: GameGroup?
     @Environment(\.dismiss) private var dismiss
@@ -47,12 +49,40 @@ struct GroupDetailView: View {
                             .buttonStyle(.plain)
                             .transition(.move(edge: .leading).combined(with: .opacity))
                         }
-                        PlayerStandingRow(player: player, isYou: player.id == claimedPlayerID)
+                        if isEditingRoster && group.canEdit {
+                            // In edit mode the card itself becomes the rename
+                            // control — the standard iOS "tap a row while
+                            // editing to change it" gesture — with the pencil
+                            // in the trailing gutter to say so.
+                            Button {
+                                beginRename(player)
+                            } label: {
+                                HStack(spacing: 10) {
+                                    PlayerStandingRow(player: player, isYou: player.id == claimedPlayerID)
+                                    Image(systemName: "pencil")
+                                        .font(.footnote.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint("Rename this player")
+                            .transition(.opacity)
+                        } else {
+                            PlayerStandingRow(player: player, isYou: player.id == claimedPlayerID)
+                        }
                     }
                     // Long-press still works as a shortcut, but Edit above is
-                    // what makes removal discoverable — a context menu is
+                    // what makes these discoverable — a context menu is
                     // invisible until you already know it's there.
                     .contextMenu {
+                        if group.canEdit {
+                            Button {
+                                beginRename(player)
+                            } label: {
+                                Label("Rename", systemImage: "pencil")
+                            }
+                        }
                         if canRemove(player) {
                             Button(role: .destructive) {
                                 playerToRemove = player
@@ -83,7 +113,11 @@ struct GroupDetailView: View {
                 HStack {
                     SectionLabel("Roster")
                     Spacer()
-                    if group.canEdit && group.players.contains(where: canRemove) {
+                    // Every player can be renamed, including the organizer's own
+                    // and the one this device claimed, so a roster with anyone
+                    // on it has something to edit — unlike removal, which the
+                    // organizer's seat is exempt from.
+                    if group.canEdit && !group.players.isEmpty {
                         Button(isEditingRoster ? "Done" : "Edit") {
                             withAnimation(.snappy(duration: 0.2)) { isEditingRoster.toggle() }
                         }
@@ -92,22 +126,29 @@ struct GroupDetailView: View {
                     }
                 }
             } footer: {
-                // Where you change your pick, now that the overflow menu is gone.
-                // Only shown once there's something to state.
-                if let claimedPlayerName {
-                    HStack(spacing: 6) {
-                        Image(systemName: "person.crop.circle.fill.badge.checkmark")
-                        Text("You're \(claimedPlayerName).")
-                        if group.canChangeClaimedPlayer {
-                            Button("Change") { isPresentingClaimSheet = true }
-                                .font(.footnote.weight(.semibold))
-                        } else {
-                            Text("Locked — this group is shared.")
-                                .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    // Says what the pencils are for. Only while editing — the
+                    // rest of the time there's nothing on screen it explains.
+                    if isEditingRoster {
+                        Label("Tap a player to rename them.", systemImage: "pencil")
+                    }
+                    // Where you change your pick, now that the overflow menu is
+                    // gone. Only shown once there's something to state.
+                    if let claimedPlayerName {
+                        HStack(spacing: 6) {
+                            Image(systemName: "person.crop.circle.fill.badge.checkmark")
+                            Text("You're \(claimedPlayerName).")
+                            if group.canChangeClaimedPlayer {
+                                Button("Change") { isPresentingClaimSheet = true }
+                                    .font(.footnote.weight(.semibold))
+                            } else {
+                                Text("Locked — this group is shared.")
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
-                    .font(.footnote)
                 }
+                .font(.footnote)
             }
 
             Section {
@@ -238,6 +279,29 @@ struct GroupDetailView: View {
         .sheet(isPresented: $isPresentingClaimSheet) {
             ClaimPlayerSheet(group: group, onClaimChanged: refreshClaim)
         }
+        // A sheet would be a whole screen for one text field. The alert also
+        // matches "New player" below, so adding a name and fixing one look and
+        // behave the same way — including the plain `TextField`, which is all
+        // an alert can host (see `CursorEndTextField`).
+        .alert(
+            "Rename player",
+            isPresented: Binding(
+                get: { playerToRename != nil },
+                set: { if !$0 { playerToRename = nil } }
+            ),
+            // Handed to the buttons rather than read back out of state: SwiftUI
+            // clears `isPresented` as part of dismissing, and whether that lands
+            // before or after the button's action isn't specified. `presenting`
+            // is captured at present time, so Save can't come up empty-handed.
+            presenting: playerToRename
+        ) { player in
+            TextField("Name", text: $renamedPlayerName)
+                .autocorrectionDisabled()
+            Button("Cancel", role: .cancel) { playerToRename = nil }
+            Button("Save") { rename(player, to: renamedPlayerName) }
+        } message: { player in
+            Text(renameMessage(for: player))
+        }
         .alert("New player", isPresented: $isAddingPlayer) {
             TextField("Name", text: $newPlayerName)
             Button("Cancel", role: .cancel) { newPlayerName = "" }
@@ -301,6 +365,38 @@ struct GroupDetailView: View {
         group.canEdit
             && player.id != claimedPlayerID
             && player.id != group.adminPlayerID
+    }
+
+    // MARK: - Renaming
+
+    /// Opens the rename alert pre-filled with the current name, so a typo is a
+    /// two-character fix rather than a retype.
+    private func beginRename(_ player: Player) {
+        guard group.canEdit else { return }
+        renamedPlayerName = player.name
+        playerToRename = player
+    }
+
+    /// What a rename does and doesn't touch. Worth spelling out: a name is the
+    /// only handle anyone has on a player, so changing it reads like it might
+    /// make them a different person. It doesn't — the row keeps its `id`, so
+    /// every buy-in, result, and claim follows along.
+    private func renameMessage(for player: Player) -> String {
+        let base = "\(player.name)'s buy-ins, results, and history all stay put — past sessions just show the new name."
+        return group.isShared ? base + " Everyone you invited sees it too." : base
+    }
+
+    /// Only the organizer renames, and unlike removal there's no seat that's
+    /// off-limits: a name is a label, not an identity, so fixing the host's own
+    /// typo is as safe as fixing anyone else's.
+    private func rename(_ player: Player, to newName: String) {
+        playerToRename = nil
+        let trimmed = newName.trimmingCharacters(in: .whitespaces)
+        guard group.canEdit, !trimmed.isEmpty, trimmed != player.name else { return }
+        player.name = trimmed
+        // Names are the one player column that syncs, so viewers pick this up
+        // on their next pull without any other edit having to happen first.
+        GroupSyncService.shared.pushSnapshotIfShared(group)
     }
 
     private var removePlayerMessage: String {

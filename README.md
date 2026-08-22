@@ -26,7 +26,9 @@ Re-run `xcodegen generate` any time `project.yml` changes or you add/remove sour
 
 ## What's implemented (MVP)
 
-- **Groups tab** — create/delete groups; each group has its own player roster and session history
+- **Groups tab** — create/delete groups; each group has its own player roster and session history.
+  The organizer can rename anyone on the roster (Edit → tap a player, or long-press any row);
+  the change follows the player through every past session and syncs to anyone they invited
 - **Start a session** — set a name, date, location, blinds, and standard buy-in, pick players from
   the roster (or add new ones on the fly), optionally designate one player as the bank, then create
   the session immediately (each player starts with one buy-in; add more from the live session)
@@ -35,8 +37,11 @@ Re-run `xcodegen generate` any time `project.yml` changes or you add/remove sour
 - **Live session** — track rebuys per player, running pot total, haptic feedback on each buy-in
 - **End session** — enter final cash-outs, with a live balance check against total buy-ins (and a
   success haptic when it balances) so a typo gets caught before you generate a payout
-- **Settlement** — computes the minimal set of payer → payee transfers (or bank-based settlement if
-  a bank was used), with a share-sheet summary
+- **Settlement** — for a no-bank game, the provably fewest payer → payee transfers: it finds the
+  largest number of groups that can settle among themselves before matching anyone up, so a pair
+  who are exactly square with each other never gets dragged into the rest of the table. (A bank
+  session instead lists the real cash flow, buy-in and cash-out per player.) Share-sheet summary
+  included
 - **Sessions / Stats tabs** — scoped to whichever group you last opened, with a switcher to jump
   between groups without going back to the Groups tab
 - **Settings** — default buy-in amount, currency

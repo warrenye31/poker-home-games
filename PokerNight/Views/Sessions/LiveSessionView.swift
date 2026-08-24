@@ -8,6 +8,8 @@ struct LiveSessionView: View {
     @State private var customAmountEntry: SessionEntry?
     @State private var customAmountText = ""
     @State private var isEditingSession = false
+    @State private var showChipGuide = false
+    @State private var showAddPlayer = false
 
     var body: some View {
         List {
@@ -19,6 +21,12 @@ struct LiveSessionView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 18)
                 .listRowBackground(AppTheme.surface)
+
+                // Mid-game, "what's the green worth?" gets asked more than
+                // anything else on this screen — so the answer lives one tap
+                // from the pot rather than back in setup.
+                ChipGuideRow(recommendation: chipRecommendation) { showChipGuide = true }
+                    .listRowBackground(AppTheme.surface)
             }
 
             Section {
@@ -53,6 +61,18 @@ struct LiveSessionView: View {
                     .padding(.vertical, 4)
                 }
                 .listRowBackground(AppTheme.surface)
+
+                if canEdit {
+                    Button {
+                        showAddPlayer = true
+                    } label: {
+                        Label("Add a player", systemImage: "person.badge.plus")
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(AppTheme.accent)
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(AppTheme.surface)
+                }
             } header: {
                 SectionLabel("Players")
             }
@@ -78,6 +98,14 @@ struct LiveSessionView: View {
         .sheet(isPresented: $isEditingSession) {
             EditSessionView(session: session)
         }
+        .sheet(isPresented: $showAddPlayer) {
+            AddPlayerToSessionSheet(session: session)
+        }
+        .sheet(isPresented: $showChipGuide) {
+            if let chipRecommendation {
+                ChipGuideView(recommendation: chipRecommendation, initialPlayerCount: session.entries.count)
+            }
+        }
         .sensoryFeedback(.impact(weight: .medium), trigger: totalBuyInsCount)
         .alert(
             "Custom buy-in",
@@ -100,6 +128,14 @@ struct LiveSessionView: View {
     }
 
     private var canEdit: Bool { session.group?.canEdit ?? true }
+
+    private var chipRecommendation: ChipRecommendation? {
+        ChipRecommendation.recommend(
+            smallBlind: session.smallBlind,
+            bigBlind: session.bigBlind,
+            buyIn: session.standardBuyIn
+        )
+    }
 
     private var totalBuyInsCount: Int {
         session.entries.reduce(0) { $0 + $1.buyIns.count }

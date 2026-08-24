@@ -28,10 +28,20 @@ struct YouBadge: View {
 /// Card row for a player: monogram, name (+ YOU badge), games played, and
 /// lifetime net. Shared by the group roster and the stats standings so a
 /// player reads identically everywhere; standings pass a `rank` to prepend.
+///
+/// `net`/`games` override the player's lifetime figures so a filtered
+/// leaderboard ("this year", "last 10") can show window totals in the same row.
+/// Left nil — as the group roster leaves them — the row reads lifetime, which is
+/// what a roster should always show regardless of any filter elsewhere.
 struct PlayerStandingRow: View {
     let player: Player
     var isYou = false
     var rank: Int?
+    var net: Decimal?
+    var games: Int?
+
+    private var displayedNet: Decimal { net ?? player.lifetimeNet }
+    private var displayedGames: Int { games ?? player.gamesPlayed }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -51,12 +61,12 @@ struct PlayerStandingRow: View {
                         YouBadge()
                     }
                 }
-                Text(countLabel(player.gamesPlayed, "game"))
+                Text(countLabel(displayedGames, "game"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            MoneyText(amount: player.lifetimeNet, role: .net, style: .callout)
+            MoneyText(amount: displayedNet, role: .net, style: .callout)
         }
         .cardBackground()
     }

@@ -21,9 +21,41 @@ struct SessionSetupView: View {
     /// the selection would silently empty. See `GameGroup.id`.
     @State private var selectedPlayerIDs = Set<UUID>()
     @State private var newPlayerName = ""
+    @State private var showChipGuide = false
 
     var body: some View {
         Form {
+            // A weekly game is the same stakes and mostly the same people every
+            // time, so re-entering all of it is the biggest recurring tax in the
+            // app. Deliberately a tap rather than a silent prefill: it fills the
+            // roster too, and quietly seating six people would be a surprise.
+            if let lastSession {
+                Section {
+                    Button {
+                        applySettings(from: lastSession)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "arrow.counterclockwise.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(AppTheme.accent)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Same as last time")
+                                    .font(.body.weight(.medium))
+                                    .foregroundStyle(.primary)
+                                Text(repeatSummary(for: lastSession))
+                                    .font(.caption)
+                                    .monospacedDigit()
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(AppTheme.surface)
+                }
+            }
+
             Section {
                 DatePicker("Date", selection: $date, displayedComponents: .date)
                     .listRowBackground(AppTheme.surface)
@@ -54,6 +86,8 @@ struct SessionSetupView: View {
                 MoneyFieldRow(label: "Big blind", text: $bigBlindText)
                     .listRowBackground(AppTheme.surface)
                 MoneyFieldRow(label: "Standard buy-in", placeholder: "Amount", text: standardBuyInBinding)
+                    .listRowBackground(AppTheme.surface)
+                ChipGuideRow(recommendation: chipRecommendation) { showChipGuide = true }
                     .listRowBackground(AppTheme.surface)
             } header: {
                 SectionLabel("Stakes")
@@ -109,6 +143,11 @@ struct SessionSetupView: View {
                     .disabled(selectedPlayerIDs.count < 2 || (usesBank && bankPlayer == nil))
             }
         }
+        .sheet(isPresented: $showChipGuide) {
+            if let chipRecommendation {
+                ChipGuideView(recommendation: chipRecommendation, initialPlayerCount: selectedPlayerIDs.count)
+            }
+        }
         .onAppear {
             if standardBuyInText.isEmpty {
                 standardBuyInText = defaultBuyIn.truncatingRemainder(dividingBy: 1) == 0
@@ -127,6 +166,17 @@ struct SessionSetupView: View {
         group.players.filter { selectedPlayerIDs.contains($0.id) }
     }
 
+    /// Recomputed from whatever is currently typed into the stakes fields, so
+    /// the summary row tracks the blinds live instead of only updating on save.
+    private var chipRecommendation: ChipRecommendation? {
+        guard let buyIn = Decimal(string: standardBuyInText), buyIn > 0 else { return nil }
+        return ChipRecommendation.recommend(
+            smallBlind: Decimal(string: smallBlindText),
+            bigBlind: Decimal(string: bigBlindText),
+            buyIn: buyIn
+        )
+    }
+
     /// Tracks manual edits separately from the 100BB auto-fill: once someone
     /// types their own buy-in, further blind changes stop overwriting it.
     private var standardBuyInBinding: Binding<String> {
@@ -134,6 +184,46 @@ struct SessionSetupView: View {
             get: { standardBuyInText },
             set: { standardBuyInText = $0; buyInEditedManually = true }
         )
+    }
+
+    // MARK: - Repeat last game
+
+    private var lastSession: Session? {
+        group.sessions.max { $0.date < $1.date }
+    }
+
+    /// Players from a past session who are still on the roster. Someone removed
+    /// from the group since then can't be re-seated, so they're dropped here
+    /// rather than counted in the summary and then silently missing.
+    private func repeatablePlayerIDs(from previous: Session) -> Set<UUID> {
+        let roster = Set(group.players.map(\.id))
+        return Set(previous.entries.compactMap(\.player?.id).filter(roster.contains))
+    }
+
+    private func repeatSummary(for previous: Session) -> String {
+        var parts = [countLabel(repeatablePlayerIDs(from: previous).count, "player")]
+        if let small = previous.smallBlind, let big = previous.bigBlind, small > 0, big > 0 {
+            parts.append("\(CurrencyFormatter.blindString(from: small))/\(CurrencyFormatter.blindString(from: big))")
+        }
+        parts.append("\(CurrencyFormatter.string(from: previous.standardBuyIn)) buy-in")
+        return parts.joined(separator: " \u{00B7} ")
+    }
+
+    /// Copies everything except the date — tonight's game is tonight's date.
+    private func applySettings(from previous: Session) {
+        location = previous.location ?? ""
+        smallBlindText = previous.smallBlind.map { CurrencyFormatter.plainString(from: $0) } ?? ""
+        bigBlindText = previous.bigBlind.map { CurrencyFormatter.plainString(from: $0) } ?? ""
+        standardBuyInText = CurrencyFormatter.plainString(from: previous.standardBuyIn)
+        // Copying a buy-in counts as choosing one. Without this, writing the
+        // blinds a line above would immediately overwrite it with 100 big blinds.
+        buyInEditedManually = true
+
+        selectedPlayerIDs = repeatablePlayerIDs(from: previous)
+        // A bank who has left the roster — or who isn't being seated tonight —
+        // can't hold the money, and a bank session with no bank can't be created.
+        bankPlayer = previous.bankPlayer.flatMap { selectedPlayerIDs.contains($0.id) ? $0 : nil }
+        usesBank = previous.usesBank && bankPlayer != nil
     }
 
     private func toggle(_ player: Player) {

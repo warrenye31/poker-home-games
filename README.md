@@ -50,6 +50,11 @@ Re-run `xcodegen generate` any time `project.yml` changes or you add/remove sour
   Sessions, and Stats, replacing the earlier stock `List` row look
 - **Group sharing** — an admin can publish a group to Supabase and share a join code; other
   devices join as read-only viewers with pull-to-refresh and best-effort Realtime updates
+- **Invites** — an "Invite your friends" banner on the group screen opens a sheet with the join code
+  as a tap-to-copy hero, the three steps the other person follows, and a one-tap invite message that
+  carries the App Store link alongside the code
+- **Standings screenshot** — the group screen's share button renders the roster to an image (no join
+  code in it) for pasting into the group chat
 - **App icon** — a black/red poker-chip-and-spade icon (generated programmatically; see
   `PokerNight/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png`)
 

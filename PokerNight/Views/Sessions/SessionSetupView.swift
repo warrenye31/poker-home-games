@@ -21,6 +21,7 @@ struct SessionSetupView: View {
     /// the selection would silently empty. See `GameGroup.id`.
     @State private var selectedPlayerIDs = Set<UUID>()
     @State private var newPlayerName = ""
+    @State private var showChipGuide = false
 
     var body: some View {
         Form {
@@ -54,6 +55,8 @@ struct SessionSetupView: View {
                 MoneyFieldRow(label: "Big blind", text: $bigBlindText)
                     .listRowBackground(AppTheme.surface)
                 MoneyFieldRow(label: "Standard buy-in", placeholder: "Amount", text: standardBuyInBinding)
+                    .listRowBackground(AppTheme.surface)
+                ChipGuideRow(recommendation: chipRecommendation) { showChipGuide = true }
                     .listRowBackground(AppTheme.surface)
             } header: {
                 SectionLabel("Stakes")
@@ -109,6 +112,11 @@ struct SessionSetupView: View {
                     .disabled(selectedPlayerIDs.count < 2 || (usesBank && bankPlayer == nil))
             }
         }
+        .sheet(isPresented: $showChipGuide) {
+            if let chipRecommendation {
+                ChipGuideView(recommendation: chipRecommendation, initialPlayerCount: selectedPlayerIDs.count)
+            }
+        }
         .onAppear {
             if standardBuyInText.isEmpty {
                 standardBuyInText = defaultBuyIn.truncatingRemainder(dividingBy: 1) == 0
@@ -125,6 +133,17 @@ struct SessionSetupView: View {
 
     private var selectedPlayers: [Player] {
         group.players.filter { selectedPlayerIDs.contains($0.id) }
+    }
+
+    /// Recomputed from whatever is currently typed into the stakes fields, so
+    /// the summary row tracks the blinds live instead of only updating on save.
+    private var chipRecommendation: ChipRecommendation? {
+        guard let buyIn = Decimal(string: standardBuyInText), buyIn > 0 else { return nil }
+        return ChipRecommendation.recommend(
+            smallBlind: Decimal(string: smallBlindText),
+            bigBlind: Decimal(string: bigBlindText),
+            buyIn: buyIn
+        )
     }
 
     /// Tracks manual edits separately from the 100BB auto-fill: once someone

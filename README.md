@@ -37,6 +37,11 @@ Re-run `xcodegen generate` any time `project.yml` changes or you add/remove sour
 - **Live session** — track rebuys per player, running pot total, haptic feedback on each buy-in
 - **End session** — enter final cash-outs, with a live balance check against total buy-ins (and a
   success haptic when it balances) so a typo gets caught before you generate a payout
+- **Chip guide** — once blinds and a buy-in are set, the session screen recommends four chip
+  denominations and the exact starting stack that adds up to a buy-in. The lowest chip matches the
+  small blind so blinds always post exactly, each chip is a whole multiple of the one below it so
+  change is always makeable, and the highest (black) chip is held back for rebuys. It also totals
+  the physical chips the table needs for N players, and shares as plain text for the group chat
 - **Settlement** — for a no-bank game, the provably fewest payer → payee transfers: it finds the
   largest number of groups that can settle among themselves before matching anyone up, so a pair
   who are exactly square with each other never gets dragged into the rest of the table. (A bank

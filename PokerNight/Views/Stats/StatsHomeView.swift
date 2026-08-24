@@ -6,6 +6,7 @@ struct StatsHomeView: View {
     @Environment(AppState.self) private var appState
     @State private var isPresentingClaimSheet = false
     @State private var claimedPlayerID: UUID?
+    @State private var range: LeaderboardRange = .allTime
 
     var body: some View {
         NavigationStack {
@@ -41,15 +42,28 @@ struct StatsHomeView: View {
     private var content: some View {
         if let group = appState.selectedGroup {
             let ranked = rankedPlayers(in: group)
-            if ranked.isEmpty {
-                ContentUnavailableView(
-                    "No players yet",
-                    systemImage: "chart.bar",
-                    description: Text("Add players to this group to see stats.")
-                )
-                .appScreenBackground()
-            } else {
-                List {
+            List {
+                Section {
+                    rangePicker
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+
+                if ranked.isEmpty {
+                    // Stays inside the List so the picker above it survives —
+                    // swapping the whole screen for an empty state would strand
+                    // someone on a window they can't change their way out of.
+                    Section {
+                        ContentUnavailableView(
+                            range == .allTime ? "No players yet" : "Nothing in this window",
+                            systemImage: "chart.bar",
+                            description: Text(range.emptyDescription)
+                        )
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                    }
+                } else {
                     if let claimedPlayerID, let you = ranked.first(where: { $0.player.id == claimedPlayerID }) {
                         Section {
                             yourStatsCard(you)
@@ -63,7 +77,7 @@ struct StatsHomeView: View {
                             .cardBackground()
                             .cardRowContainer()
                     } header: {
-                        SectionLabel("Lifetime net")
+                        SectionLabel(chartTitle)
                     }
 
                     Section {
@@ -75,9 +89,9 @@ struct StatsHomeView: View {
                         SectionLabel("Standings")
                     }
                 }
-                .listStyle(.insetGrouped)
-                .appScreenBackground()
             }
+            .listStyle(.insetGrouped)
+            .appScreenBackground()
         } else {
             ContentUnavailableView(
                 "No group selected",
@@ -88,11 +102,29 @@ struct StatsHomeView: View {
         }
     }
 
+    /// Segmented rather than a menu: three options people flip between while
+    /// looking at the same list, so the cost of a tap matters more than the
+    /// vertical space a menu would save.
+    private var rangePicker: some View {
+        Picker("Range", selection: $range) {
+            ForEach(LeaderboardRange.allCases) { option in
+                Text(option.label).tag(option)
+            }
+        }
+        .pickerStyle(.segmented)
+    }
+
+    private var chartTitle: String {
+        range == .allTime ? "Lifetime net" : "Net \(range.label.lowercased())"
+    }
+
     private func standingRow(_ entry: RankedPlayer) -> some View {
         PlayerStandingRow(
             player: entry.player,
             isYou: entry.player.id == claimedPlayerID,
-            rank: entry.rank
+            rank: entry.rank,
+            net: entry.stats.net,
+            games: entry.stats.gamesPlayed
         )
     }
 
@@ -100,13 +132,13 @@ struct StatsHomeView: View {
         HStack(spacing: 14) {
             Monogram(name: entry.player.name, size: 40)
             VStack(alignment: .leading, spacing: 2) {
-                SectionLabel("Your net")
-                Text("Rank #\(entry.rank) \u{00B7} \(countLabel(entry.player.gamesPlayed, "game"))")
+                SectionLabel(range == .allTime ? "Your net" : "Your net \(range.label.lowercased())")
+                Text("Rank #\(entry.rank) \u{00B7} \(countLabel(entry.stats.gamesPlayed, "game"))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            MoneyText(amount: entry.player.lifetimeNet, role: .net, style: .title3)
+            MoneyText(amount: entry.stats.net, role: .net, style: .title3)
         }
         .cardBackground()
     }
@@ -141,18 +173,19 @@ struct StatsHomeView: View {
 
     private struct RankedPlayer: Identifiable {
         let rank: Int
-        let player: Player
+        let stats: ScopedPlayerStats
+
+        var player: Player { stats.player }
         /// `player.id`, not `persistentModelID`: the latter is reassigned when a
         /// newly-inserted model is first saved, which would churn ForEach/Chart
         /// identity mid-render. See `GameGroup.id`.
-        var id: UUID { player.id }
-        var netValue: Double { Double(truncating: player.lifetimeNet as NSNumber) }
+        var id: UUID { stats.id }
+        var netValue: Double { stats.netValue }
     }
 
     private func rankedPlayers(in group: GameGroup) -> [RankedPlayer] {
-        group.players
-            .sorted { $0.lifetimeNet > $1.lifetimeNet }
+        LeaderboardCalculator.standings(in: group, range: range)
             .enumerated()
-            .map { RankedPlayer(rank: $0.offset + 1, player: $0.element) }
+            .map { RankedPlayer(rank: $0.offset + 1, stats: $0.element) }
     }
 }

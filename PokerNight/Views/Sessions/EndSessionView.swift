@@ -15,6 +15,12 @@ struct EndSessionView: View {
     /// must not be used as a durable key.
     @State private var cashOutText: [UUID: String] = [:]
     @State private var isFinishing = false
+    @State private var countingEntry: SessionEntry?
+    /// Resolved once in `onAppear` rather than on demand: the recommendation is
+    /// a small search, and as a computed property it would re-run for every
+    /// player row on every keystroke. The stakes can't change from this screen,
+    /// so there's nothing to keep it in sync with.
+    @State private var chipRecommendation: ChipRecommendation?
 
     var body: some View {
         List {
@@ -35,6 +41,20 @@ struct EndSessionView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
+                        // Counting a stack by color is the one moment this
+                        // screen needs a calculator, and the chip guide already
+                        // knows what each color is worth.
+                        if canEdit && chipRecommendation != nil {
+                            Button {
+                                countingEntry = entry
+                            } label: {
+                                Image(systemName: "circle.hexagongrid.fill")
+                                    .font(.title3)
+                                    .foregroundStyle(AppTheme.accent)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Count chips for \(entry.player?.name ?? "player")")
+                        }
                         CursorEndTextField(
                             placeholder: "Cash out",
                             text: binding(for: entry),
@@ -80,6 +100,24 @@ struct EndSessionView: View {
                 .disabled(!session.isBalanced || !canEdit || isFinishing)
             }
         }
+        .sheet(
+            isPresented: Binding(
+                get: { countingEntry != nil },
+                set: { if !$0 { countingEntry = nil } }
+            )
+        ) {
+            if let countingEntry, let chipRecommendation {
+                ChipCountSheet(
+                    recommendation: chipRecommendation,
+                    playerName: countingEntry.player?.name ?? "this player"
+                ) { total in
+                    // Same path a typed cash-out takes: seed the field, and let
+                    // its `.onChange` write the model, so the balance banner and
+                    // the field can't disagree about what was entered.
+                    cashOutText[countingEntry.id] = CurrencyFormatter.plainString(from: total)
+                }
+            }
+        }
         .sensoryFeedback(trigger: session.isBalanced) { _, isBalanced in
             isBalanced ? .success : nil
         }
@@ -88,6 +126,11 @@ struct EndSessionView: View {
 
     private func handleAppear() {
         seedCashOutTextFromModel()
+        chipRecommendation = ChipRecommendation.recommend(
+            smallBlind: session.smallBlind,
+            bigBlind: session.bigBlind,
+            buyIn: session.standardBuyIn
+        )
         // SwiftUI preserves this view's @State at its slot in the nav path
         // when a Finish tap pushes Settlement on top of it, rather than
         // tearing it down. Without resetting here, navigating back to a still
@@ -113,9 +156,6 @@ struct EndSessionView: View {
 
     private var canEdit: Bool { session.group?.canEdit ?? true }
 
-    private var difference: Decimal {
-        session.totalCashOuts - session.totalBuyIns
-    }
     // MARK: - Summary
 
     @ViewBuilder

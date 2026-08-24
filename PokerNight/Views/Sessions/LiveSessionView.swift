@@ -9,6 +9,7 @@ struct LiveSessionView: View {
     @State private var customAmountText = ""
     @State private var isEditingSession = false
     @State private var showChipGuide = false
+    @State private var showAddPlayer = false
 
     var body: some View {
         List {
@@ -60,6 +61,18 @@ struct LiveSessionView: View {
                     .padding(.vertical, 4)
                 }
                 .listRowBackground(AppTheme.surface)
+
+                if canEdit {
+                    Button {
+                        showAddPlayer = true
+                    } label: {
+                        Label("Add a player", systemImage: "person.badge.plus")
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(AppTheme.accent)
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(AppTheme.surface)
+                }
             } header: {
                 SectionLabel("Players")
             }
@@ -84,6 +97,9 @@ struct LiveSessionView: View {
         }
         .sheet(isPresented: $isEditingSession) {
             EditSessionView(session: session)
+        }
+        .sheet(isPresented: $showAddPlayer) {
+            AddPlayerToSessionSheet(session: session)
         }
         .sheet(isPresented: $showChipGuide) {
             if let chipRecommendation {

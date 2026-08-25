@@ -68,9 +68,40 @@ struct ChipRecommendation {
         denominations.map(\.label).joined(separator: " · ")
     }
 
-    /// A single rebuy, paid out in top chips.
+    /// Whole top chips in one rebuy, rounded down — what a player can actually
+    /// be handed in top chips alone.
+    var wholeTopChipsInRebuy: Int {
+        Self.units(buyIn, per: topChip.value)
+    }
+
+    /// Whether a rebuy comes out to a whole number of top chips at all. False
+    /// whenever the buy-in isn't a multiple of the top chip — a $25 buy-in
+    /// against a $10 black — which is why the copy can't just name a count.
+    var rebuyIsWholeTopChips: Bool {
+        Decimal(wholeTopChipsInRebuy) * topChip.value == buyIn
+    }
+
+    /// A single rebuy in top chips, rounded **up**. This is a stocking figure,
+    /// not a payout: it feeds `topChipReserve`, and a host who set aside two
+    /// chips for a two-and-a-half-chip rebuy would be breaking into a stack to
+    /// make up the difference. `rebuyDescription` is the honest payout.
     var rebuyInTopChips: Int {
-        max(1, Self.units(buyIn, per: topChip.value))
+        max(1, Self.unitsRoundingUp(buyIn, per: topChip.value))
+    }
+
+    /// How a rebuy is really paid out, in words. Names a chip count only when
+    /// the buy-in divides evenly; otherwise it says the count *and* that change
+    /// is needed, because "2 chips buys back in" is off by $5 at a $25 buy-in.
+    /// The color is left to the caller, which has already named it.
+    var rebuyDescription: String {
+        let amount = CurrencyFormatter.string(from: buyIn)
+        guard wholeTopChipsInRebuy > 0 else {
+            return "a \(amount) rebuy comes out of the smaller chips"
+        }
+        let chips = countLabel(wholeTopChipsInRebuy, "chip")
+        return rebuyIsWholeTopChips
+            ? "a \(amount) rebuy is \(chips)"
+            : "a \(amount) rebuy is \(chips) plus change"
     }
 
     /// Top chips to keep aside per player: two rebuys' worth, so the host isn't
@@ -124,7 +155,7 @@ struct ChipRecommendation {
             }
         }
 
-        notes.append("A rebuy pays out as \(countLabel(rebuyInTopChips, "\(topName) chip")) — keep the \(topName)s with the host rather than in the stacks.")
+        notes.append("Keep the \(topName)s with the host rather than in the stacks — \(rebuyDescription).")
 
         if stackValue != buyIn {
             let short = buyIn - stackValue
@@ -340,6 +371,18 @@ struct ChipRecommendation {
         var floored = Decimal()
         NSDecimalRound(&floored, &settled, 0, .down)
         return NSDecimalNumber(decimal: floored).intValue
+    }
+
+    /// `units`, rounded up instead of down — for figures where being short is
+    /// the expensive direction, such as how many chips to stock.
+    private static func unitsRoundingUp(_ amount: Decimal, per denom: Decimal) -> Int {
+        guard denom > 0, amount > 0 else { return 0 }
+        var quotient = amount / denom
+        var settled = Decimal()
+        NSDecimalRound(&settled, &quotient, 6, .plain)
+        var raised = Decimal()
+        NSDecimalRound(&raised, &settled, 0, .up)
+        return NSDecimalNumber(decimal: raised).intValue
     }
 
     private static func dbl(_ value: Decimal) -> Double {

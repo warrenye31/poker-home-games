@@ -527,6 +527,7 @@ private struct ClaimPromptBar: View {
             }
             .padding(14)
             .cardBackground()
+            .fullRowTapTarget()
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 16)

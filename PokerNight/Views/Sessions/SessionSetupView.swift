@@ -50,6 +50,7 @@ struct SessionSetupView: View {
                             Spacer()
                         }
                         .padding(.vertical, 2)
+                        .fullRowTapTarget()
                     }
                     .buttonStyle(.plain)
                     .listRowBackground(AppTheme.surface)
@@ -109,6 +110,7 @@ struct SessionSetupView: View {
                                 .foregroundStyle(isSelected ? AppTheme.accent : Color.secondary.opacity(0.5))
                         }
                         .padding(.vertical, 2)
+                        .fullRowTapTarget()
                     }
                     .buttonStyle(.plain)
                 }

@@ -18,10 +18,10 @@ targets:
       path: PokerNight/Info.plist
       properties:
         CFBundleDisplayName: Poker Night
+        CFBundleShortVersionString: "1.2"
+        CFBundleVersion: "1"
         ITSAppUsesNonExemptEncryption: false
         UILaunchScreen: {}
-        UIBackgroundModes:
-          - remote-notification
     entitlements:
       path: PokerNight/PokerNight.entitlements
       properties:

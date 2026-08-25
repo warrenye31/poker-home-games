@@ -56,6 +56,34 @@ final class Session {
         date.formatted(date: .abbreviated, time: .omitted)
     }
 
+    /// `entries` in the order players sat down — the order every list of them
+    /// should render in.
+    ///
+    /// `entries` is a SwiftData to-many relationship, and those carry no order
+    /// guarantee: rendering one straight into a `ForEach` lets rows swap places
+    /// between renders. That isn't only cosmetic. The live session's buy-in
+    /// button and the end-session cash-out fields are positional, so a row that
+    /// moves out from under a finger books a rebuy or a final stack against the
+    /// wrong player. `SettlementCalculator` sorts before it emits transfers for
+    /// the same reason.
+    ///
+    /// An entry with no buy-ins yet sorts last; the stable `id` breaks exact
+    /// ties, so two players seated in the same instant can't trade places.
+    var seatedEntries: [SessionEntry] {
+        entries.sorted { lhs, rhs in
+            switch (lhs.seatedAt, rhs.seatedAt) {
+            case let (left?, right?) where left != right:
+                return left < right
+            case (nil, .some):
+                return false
+            case (.some, nil):
+                return true
+            default:
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
+        }
+    }
+
     var totalBuyIns: Decimal {
         entries.reduce(Decimal(0)) { $0 + $1.totalBuyIn }
     }

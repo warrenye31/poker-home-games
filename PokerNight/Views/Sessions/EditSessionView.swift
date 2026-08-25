@@ -84,7 +84,7 @@ struct EditSessionView: View {
     }
 
     private var participants: [Player] {
-        session.entries.compactMap(\.player)
+        session.seatedEntries.compactMap(\.player)
     }
 
     private func save() {

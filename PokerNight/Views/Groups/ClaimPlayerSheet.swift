@@ -29,11 +29,7 @@ struct ClaimPlayerSheet: View {
                                         .foregroundStyle(AppTheme.accent)
                                 }
                             }
-                            // Plain-style buttons only register taps on the label's
-                            // rendered content, not the Spacer's empty space — without
-                            // this, only the monogram/name/checkmark are tappable and
-                            // the rest of the row silently eats taps.
-                            .contentShape(Rectangle())
+                            .fullRowTapTarget()
                         }
                         .buttonStyle(.plain)
                         .disabled(!group.canChangeClaimedPlayer)

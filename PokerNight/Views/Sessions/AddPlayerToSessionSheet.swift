@@ -54,6 +54,7 @@ struct AddPlayerToSessionSheet: View {
                                         .foregroundStyle(isSelected ? AppTheme.accent : Color.secondary.opacity(0.5))
                                 }
                                 .padding(.vertical, 2)
+                                .fullRowTapTarget()
                             }
                             .buttonStyle(.plain)
                         }

@@ -53,10 +53,13 @@ enum SettlementCalculator {
     /// owed it back. And the bank's actual exposure vanished: a bank holding
     /// $800 of buy-ins appeared to be settling $120 of swings.
     ///
-    /// Buy-ins are listed before cash-outs, mirroring the order they happen in.
-    /// The bank's own entry is skipped — it would only ever pay itself.
+    /// Buy-ins are listed before cash-outs, mirroring the order they happen in,
+    /// and players run in seating order within each half — `seatedEntries` for
+    /// the same reason `simplifyDebts` sorts below, since `SettlementView`
+    /// matches its paid ticks to rows by payer/payee pair. The bank's own entry
+    /// is skipped — it would only ever pay itself.
     private static func bankSettlement(session: Session, bank: Player) -> [Transfer] {
-        let others = session.entries.filter { $0.player?.id != bank.id }
+        let others = session.seatedEntries.filter { $0.player?.id != bank.id }
 
         let buyIns = others.compactMap { entry -> Transfer? in
             guard let player = entry.player, entry.totalBuyIn > 0 else { return nil }

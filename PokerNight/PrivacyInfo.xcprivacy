@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<!--
+	  Left empty deliberately: this section is a legal declaration of what
+	  user data the app collects, not a technical one, and shouldn't be filled
+	  in without you confirming it. The one real candidate is the anonymous
+	  Supabase auth.uid() (SupabaseService.swift) — a random per-device ID with
+	  no signup, used only to gate reads/writes via Row Level Security. If you
+	  add anything that sends real user data off-device, add an entry here and
+	  in the App Store Connect Privacy Nutrition Label to match.
+	-->
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<!--
+				  CA92.1: reading/writing the App Group's shared UserDefaults
+				  (PlayerClaimStore, CurrencySettings, the stable-ID backfill flag)
+				  — all app-group-scoped, never another app's container.
+				-->
+				<string>CA92.1</string>
+				<!--
+				  1C8F.1: @AppStorage("defaultBuyIn"/"hasSeenOnboarding") — plain
+				  app preferences, not user- or device-identifying, never read by
+				  anything outside this app.
+				-->
+				<string>1C8F.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

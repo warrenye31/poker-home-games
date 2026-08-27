@@ -291,3 +291,23 @@ struct GroupSwitcherMenu: View {
         }
     }
 }
+
+// MARK: - Full-row tap targets
+
+extension View {
+    /// Makes a whole row tappable, not just the pixels that happen to have ink
+    /// on them.
+    ///
+    /// A `.plain`-style `Button` hit-tests only its label's *rendered* content.
+    /// These rows are an `HStack` with a `Spacer()` holding the two ends apart,
+    /// and that Spacer draws nothing — so the entire middle of the row silently
+    /// swallows taps. On a picker that reads as "the app ignored me"; on the
+    /// live session's player list it's worse, because the row looks pressable
+    /// everywhere and only works at the edges.
+    ///
+    /// Apply as the last modifier inside the button's label, after any padding
+    /// or background, so the shape covers the row's full frame.
+    func fullRowTapTarget() -> some View {
+        contentShape(Rectangle())
+    }
+}

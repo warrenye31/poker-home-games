@@ -25,4 +25,12 @@ final class SessionEntry {
     var net: Decimal {
         (cashOut ?? 0) - totalBuyIn
     }
+
+    /// When this player sat down, taken as the first buy-in they were handed.
+    /// Everyone gets one as the session is created and a latecomer gets theirs
+    /// when they're seated, so this reads as arrival order. `nil` only for an
+    /// entry with no buy-ins at all. See `Session.seatedEntries`.
+    var seatedAt: Date? {
+        buyIns.map(\.timestamp).min()
+    }
 }

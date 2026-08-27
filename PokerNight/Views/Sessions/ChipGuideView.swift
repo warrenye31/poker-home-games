@@ -149,7 +149,7 @@ struct ChipGuideView: View {
         } header: {
             SectionLabel("Each player starts with")
         } footer: {
-            Text("\(countLabel(recommendation.chipsPerStack, "chip")) per stack. \(recommendation.topChip.color.name)s stay with the host for rebuys — \(countLabel(recommendation.rebuyInTopChips, "chip")) buys back in.")
+            Text("\(countLabel(recommendation.chipsPerStack, "chip")) per stack. \(recommendation.topChip.color.name)s stay with the host for rebuys — \(recommendation.rebuyDescription).")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -278,6 +278,7 @@ struct ChipGuideRow: View {
                     .foregroundStyle(.tertiary)
             }
             .padding(.vertical, 2)
+            .fullRowTapTarget()
         }
         .buttonStyle(.plain)
         .disabled(recommendation == nil)

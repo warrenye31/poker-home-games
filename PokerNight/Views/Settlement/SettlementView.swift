@@ -15,7 +15,7 @@ struct SettlementView: View {
     var body: some View {
         List {
             Section {
-                ForEach(session.entries) { entry in
+                ForEach(session.seatedEntries) { entry in
                     HStack(spacing: 12) {
                         Monogram(name: entry.player?.name ?? "?", size: 32)
                         Text(entry.player?.name ?? "Unknown")
@@ -110,6 +110,7 @@ struct SettlementView: View {
                 )
             }
             .padding(.vertical, 4)
+            .fullRowTapTarget()
         }
         .buttonStyle(.plain)
         .disabled(!canEdit)

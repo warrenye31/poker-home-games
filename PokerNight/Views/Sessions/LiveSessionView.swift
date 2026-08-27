@@ -30,7 +30,7 @@ struct LiveSessionView: View {
             }
 
             Section {
-                ForEach(session.entries) { entry in
+                ForEach(session.seatedEntries) { entry in
                     HStack(spacing: 14) {
                         Monogram(name: entry.player?.name ?? "?", size: 36)
                         VStack(alignment: .leading, spacing: 2) {

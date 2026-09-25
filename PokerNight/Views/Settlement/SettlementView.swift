@@ -68,20 +68,28 @@ struct SettlementView: View {
         .sheet(isPresented: $isEditingSession) {
             EditSessionView(session: session)
         }
+        .onAppear(perform: reconcilePayments)
+        // Editing the session from the toolbar can reshape the settlement
+        // while this screen is up.
+        .onChange(of: transferSignature) { _, _ in reconcilePayments() }
     }
 
     private var canEdit: Bool { session.group?.canEdit ?? true }
 
     private func transferRow(for transfer: Transfer) -> some View {
-        let payment = payment(for: transfer)
+        // `nil` only on a viewer whose last pull predates this settlement, or
+        // for the instant before `reconcilePayments` runs — unpaid either way.
+        let payment = session.settlementPayments.first { $0.matches(transfer) }
+        let isPaid = payment?.isPaid ?? false
         return Button {
-            guard canEdit else { return }
+            guard canEdit, let payment else { return }
             payment.isPaid.toggle()
+            pushIfShared()
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: payment.isPaid ? "checkmark.circle.fill" : "circle")
+                Image(systemName: isPaid ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundStyle(payment.isPaid ? AppTheme.accent : Color.secondary.opacity(0.5))
+                    .foregroundStyle(isPaid ? AppTheme.accent : Color.secondary.opacity(0.5))
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(transfer.from.name)
@@ -99,14 +107,14 @@ struct SettlementView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                .foregroundStyle(payment.isPaid ? Color.secondary : Color.primary)
-                .strikethrough(payment.isPaid)
+                .foregroundStyle(isPaid ? Color.secondary : Color.primary)
+                .strikethrough(isPaid)
                 Spacer()
                 MoneyText(
                     amount: transfer.amount,
-                    role: payment.isPaid ? .muted : .neutral,
+                    role: isPaid ? .muted : .neutral,
                     style: .callout,
-                    strikethrough: payment.isPaid
+                    strikethrough: isPaid
                 )
             }
             .padding(.vertical, 4)
@@ -116,20 +124,25 @@ struct SettlementView: View {
         .disabled(!canEdit)
     }
 
-    private func payment(for transfer: Transfer) -> SettlementPayment {
-        if let existing = session.settlementPayments.first(where: {
-            $0.fromPlayer === transfer.from && $0.toPlayer === transfer.to
-        }) {
-            return existing
-        }
-        let created = SettlementPayment(
-            session: session,
-            fromPlayer: transfer.from,
-            toPlayer: transfer.to,
-            amount: transfer.amount
-        )
-        modelContext.insert(created)
-        return created
+    /// Changes whenever the settlement does — who pays whom, or how much.
+    private var transferSignature: String {
+        transfers.map { "\($0.id):\($0.amount)" }.joined(separator: ",")
     }
 
+    /// Only the organizer writes payment records. A viewer's copies come from
+    /// the server, and any row a viewer created here would be swept away by
+    /// its next pull anyway. An unfinished session has no settlement yet —
+    /// its "transfers" are just whatever the half-entered cash-outs imply.
+    private func reconcilePayments() {
+        guard canEdit, session.status == .completed else { return }
+        if SettlementPayment.reconcile(session: session, transfers: transfers, context: modelContext) {
+            pushIfShared()
+        }
+    }
+
+    private func pushIfShared() {
+        if let group = session.group {
+            GroupSyncService.shared.pushSnapshotIfShared(group)
+        }
+    }
 }

@@ -24,6 +24,7 @@ each, **Run**, then move to the next:
 | [`0001_init.sql`](migrations/0001_init.sql) | The `groups`, `players`, `sessions`, `session_entries`, and `group_members` tables, the `join_group_with_code()` RPC, all Row Level Security policies, and the Realtime publication. |
 | [`0002_admin_player_claim.sql`](migrations/0002_admin_player_claim.sql) | `groups.admin_player_id`, reserving the group creator's own player identity. |
 | [`0003_fix_groups_select_self_lookup.sql`](migrations/0003_fix_groups_select_self_lookup.sql) | Fixes `groups_select`, which made sharing fail for **every** group. Required. |
+| [`0004_settlement_payments.sql`](migrations/0004_settlement_payments.sql) | `settlement_payments`, so paid checkmarks reach viewers' Inbox. Without it sync still works, but viewers see every debt as unpaid. |
 
 All of them are idempotent (`create table if not exists`, `create or replace
 function`, `drop policy if exists` before each `create policy`), so re-running

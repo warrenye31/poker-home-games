@@ -22,6 +22,15 @@ final class GroupSyncService {
     private let auth = SupabaseService.shared
     private var realtimeTasks: [UUID: Task<Void, Never>] = [:]
 
+    /// The newest write queued for each group. Every push, share, and remote
+    /// delete waits for the one before it — see `serialized`.
+    private var writeQueue: [UUID: Task<Void, Error>] = [:]
+    /// Groups with a background push queued that hasn't started reading the
+    /// group yet. A change made while one is waiting rides along with it.
+    private var pendingPushes: Set<UUID> = []
+    /// Groups with a Realtime-triggered pull already scheduled.
+    private var pendingRealtimePulls: Set<UUID> = []
+
     private init() {}
 
     // MARK: - Admin: share + push
@@ -30,7 +39,7 @@ final class GroupSyncService {
     /// share join code. Safe to call again later to just re-sync.
     @discardableResult
     func shareGroup(_ group: GameGroup) async throws -> String {
-        try await pushSnapshot(for: group)
+        try await serialized(group.id) { try await self.pushSnapshot(for: group) }.value
         guard let code = group.joinCode else {
             throw SupabaseError.notConfigured
         }
@@ -41,17 +50,51 @@ final class GroupSyncService {
     /// buy-in, end session, etc). No-ops for groups that were never shared or
     /// for viewer-role local copies. Failures are logged, not surfaced —
     /// the admin's local data is always correct regardless of sync state.
+    ///
+    /// Pushes are queued, never run side by side. Two overlapping pushes used
+    /// to race: an older one's orphan sweep, working from the rows it read
+    /// before a newer push uploaded a fresh buy-in, would delete that row on
+    /// the server until the next push put it back — and viewers watched it
+    /// vanish in between. A short wait before each push also folds a burst
+    /// of taps (three rebuys in a row) into one upload instead of three.
     func pushSnapshotIfShared(_ group: GameGroup) {
         guard group.isShared, group.role == .admin else { return }
-        Task {
+        // One already waiting will read the group after this change, so it
+        // covers it.
+        guard pendingPushes.insert(group.id).inserted else { return }
+        let groupId = group.id
+        serialized(groupId) {
+            try? await Task.sleep(for: .milliseconds(400))
+            // From here on the push reads the group, so any later change
+            // needs a push of its own, queued behind this one.
+            self.pendingPushes.remove(groupId)
+            // The group may have been deleted while this waited; pushing it
+            // now would resurrect it on the server.
+            guard group.modelContext != nil, !group.isDeleted, group.isShared else { return }
             do {
-                try await pushSnapshot(for: group)
+                try await self.pushSnapshot(for: group)
             } catch {
                 #if DEBUG
                 print("[Sync] background push failed: \(error)")
                 #endif
             }
         }
+    }
+
+    /// Runs `operation` after every write already queued for this group has
+    /// finished, successfully or not.
+    @discardableResult
+    private func serialized(
+        _ groupId: UUID,
+        _ operation: @escaping @MainActor () async throws -> Void
+    ) -> Task<Void, Error> {
+        let previous = writeQueue[groupId]
+        let task = Task { @MainActor in
+            _ = await previous?.result
+            try await operation()
+        }
+        writeQueue[groupId] = task
+        return task
     }
 
     private func pushSnapshot(for group: GameGroup) async throws {
@@ -127,6 +170,17 @@ final class GroupSyncService {
             keepIds: Set(allEntries.map(\.id)), client: client
         )
 
+        // Best-effort, unlike everything above: a paid checkmark failing to
+        // sync (say, a database that hasn't had 0004 run yet) must not take
+        // sharing and the leaderboard down with it.
+        do {
+            try await pushPayments(for: group, client: client)
+        } catch {
+            #if DEBUG
+            print("[Sync] settlement payment push failed: \(error)")
+            #endif
+        }
+
         // Now that the roster is on the server, the group may point at one of
         // its players. Deliberately last: sending this with the group's own
         // insert fails with `23503 groups_admin_player_id_fkey`, and sending it
@@ -139,6 +193,8 @@ final class GroupSyncService {
                 .execute()
         }
 
+        // Deleted locally mid-push: its properties are no longer safe to write.
+        guard group.modelContext != nil, !group.isDeleted else { return }
         group.isShared = true
         group.joinCode = remoteGroup.joinCode
         // `adminPlayerID` is deliberately *not* read back here. On the admin
@@ -146,6 +202,35 @@ final class GroupSyncService {
         // the pre-update read, so copying it would revert the pick just pushed.
         // (A viewer's `pullSnapshot` does read it back — there the server wins.)
         group.lastSyncedAt = .now
+    }
+
+    /// Paid checkmarks, so a viewer's Inbox knows what's been settled. A
+    /// record whose player has since left the roster can't be sent — its
+    /// foreign key would point at a row `pushSnapshot`'s sweep just removed.
+    private func pushPayments(for group: GameGroup, client: SupabaseClient) async throws {
+        let rosterIDs = Set(group.players.map(\.id))
+        let allPayments = group.sessions.flatMap(\.settlementPayments)
+        let paymentPayloads = allPayments.compactMap { payment -> RemoteSettlementPayment? in
+            guard let session = payment.session,
+                  let from = payment.fromPlayer, rosterIDs.contains(from.id),
+                  let to = payment.toPlayer, rosterIDs.contains(to.id) else { return nil }
+            return RemoteSettlementPayment(
+                id: payment.id,
+                groupId: group.id,
+                sessionId: session.id,
+                fromPlayerId: from.id,
+                toPlayerId: to.id,
+                amount: payment.amount,
+                isPaid: payment.isPaid
+            )
+        }
+        if !paymentPayloads.isEmpty {
+            try await client.from("settlement_payments").upsert(paymentPayloads, onConflict: "id").execute()
+        }
+        try await deleteOrphans(
+            table: "settlement_payments", groupId: group.id,
+            keepIds: Set(paymentPayloads.map(\.id)), client: client
+        )
     }
 
     /// Deletes rows for `groupId` that exist remotely but not in `keepIds` —
@@ -210,10 +295,16 @@ final class GroupSyncService {
             let remoteEntries: [RemoteSessionEntry] = try await client
                 .from("session_entries").select().eq("group_id", value: groupId.uuidString)
                 .execute().value
+            // `try?`: see `pushPayments`. `nil` leaves local checkmarks alone
+            // rather than reading a failed fetch as "none are paid".
+            let remotePayments: [RemoteSettlementPayment]? = try? await client
+                .from("settlement_payments").select().eq("group_id", value: groupId.uuidString)
+                .execute().value
 
             try self.applySnapshot(
                 remoteGroup: remoteGroup, players: remotePlayers,
-                sessions: remoteSessions, entries: remoteEntries, context: context
+                sessions: remoteSessions, entries: remoteEntries,
+                payments: remotePayments, context: context
             )
         }
     }
@@ -221,10 +312,15 @@ final class GroupSyncService {
     /// The Supabase free tier pauses a project after ~7 days idle; the first
     /// request after that can be slow or time out while it wakes back up.
     /// Retry once after a short delay before surfacing the error to the UI.
+    ///
+    /// Only failures that a second try could fix. A `PostgrestError` is the
+    /// server answering — a missing row, an RLS denial — and it will answer
+    /// the same way three seconds later; a cancelled pull (the screen went
+    /// away) shouldn't come back to life.
     private func withColdStartRetry<T>(_ operation: () async throws -> T) async throws -> T {
         do {
             return try await operation()
-        } catch {
+        } catch let error where !(error is PostgrestError) && !(error is CancellationError) {
             try await Task.sleep(nanoseconds: 3_000_000_000)
             return try await operation()
         }
@@ -235,6 +331,7 @@ final class GroupSyncService {
         players: [RemotePlayer],
         sessions: [RemoteSession],
         entries: [RemoteSessionEntry],
+        payments: [RemoteSettlementPayment]?,
         context: ModelContext
     ) throws {
         let group = try findOrCreateGroup(id: remoteGroup.id, context: context)
@@ -294,7 +391,40 @@ final class GroupSyncService {
             applyTotalBuyIn(remoteEntry.totalBuyIn, to: entry, context: context)
         }
 
+        // Paid checkmarks. The server is the whole truth here — a viewer never
+        // writes these — so anything local it doesn't list goes.
+        if let payments {
+            try applyPayments(payments, sessionsByID: sessionsByID, playersByID: playersByID, context: context)
+        }
+
         try context.save()
+    }
+
+    private func applyPayments(
+        _ payments: [RemoteSettlementPayment],
+        sessionsByID: [UUID: Session],
+        playersByID: [UUID: Player],
+        context: ModelContext
+    ) throws {
+        let validPaymentIDs = Set(payments.map(\.id))
+        for session in sessionsByID.values {
+            for payment in session.settlementPayments where !validPaymentIDs.contains(payment.id) {
+                context.delete(payment)
+            }
+        }
+        for remotePayment in payments {
+            guard let session = sessionsByID[remotePayment.sessionId],
+                  let from = playersByID[remotePayment.fromPlayerId],
+                  let to = playersByID[remotePayment.toPlayerId] else { continue }
+            let payment = try findOrCreatePayment(
+                id: remotePayment.id, session: session, from: from, to: to, context: context
+            )
+            payment.session = session
+            payment.fromPlayer = from
+            payment.toPlayer = to
+            payment.amount = remotePayment.amount
+            payment.isPaid = remotePayment.isPaid
+        }
     }
 
     private func applyTotalBuyIn(_ amount: Decimal, to entry: SessionEntry, context: ModelContext) {
@@ -344,6 +474,17 @@ final class GroupSyncService {
         return entry
     }
 
+    private func findOrCreatePayment(
+        id: UUID, session: Session, from: Player, to: Player, context: ModelContext
+    ) throws -> SettlementPayment {
+        var descriptor = FetchDescriptor<SettlementPayment>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        if let existing = try context.fetch(descriptor).first { return existing }
+        let payment = SettlementPayment(session: session, fromPlayer: from, toPlayer: to, amount: 0, id: id)
+        context.insert(payment)
+        return payment
+    }
+
     // MARK: - Admin: delete
 
     /// Deletes a shared group from the server so it stops existing for everyone
@@ -362,10 +503,13 @@ final class GroupSyncService {
         guard group.role == .admin, group.isShared else { return }
         let groupId = group.id
         stopRealtimeSync(groupId: groupId)
-        Task {
-            guard let client = auth.client else { return }
+        pendingPushes.remove(groupId)
+        // Queued behind any push still in flight, so a push that was mid-way
+        // when the group was deleted can't land after this and re-create it.
+        serialized(groupId) {
+            guard let client = self.auth.client else { return }
             do {
-                try await auth.ensureSignedIn()
+                try await self.auth.ensureSignedIn()
                 try await client
                     .from("groups")
                     .delete()
@@ -412,24 +556,42 @@ final class GroupSyncService {
     /// Starts a best-effort live subscription for a group; on any change,
     /// re-pulls the full snapshot. If Realtime is unavailable for any reason,
     /// this silently no-ops — callers should still pull on appear/refresh.
+    ///
+    /// Watches every synced table, not just the money: a renamed player, a
+    /// session moved to another date, or a new paid checkmark would otherwise
+    /// only reach a viewer when they pulled to refresh.
     func startRealtimeSync(groupId: UUID, context: ModelContext) {
         guard let client = auth.client, realtimeTasks[groupId] == nil else { return }
         let task = Task {
             do {
                 let channel = client.channel("group-\(groupId.uuidString)")
-                let changes = channel.postgresChange(
+                let byGroup = ["players", "sessions", "session_entries", "settlement_payments"].map { table in
+                    channel.postgresChange(
+                        AnyAction.self,
+                        schema: "public",
+                        table: table,
+                        filter: .eq("group_id", value: groupId.uuidString)
+                    )
+                }
+                let groupRow = channel.postgresChange(
                     AnyAction.self,
                     schema: "public",
-                    table: "session_entries",
-                    filter: .eq("group_id", value: groupId.uuidString)
+                    table: "groups",
+                    filter: .eq("id", value: groupId.uuidString)
                 )
                 // `subscribeWithError`, not the deprecated `subscribe()`: the
                 // latter doesn't throw, so the catch below was unreachable and a
                 // Realtime failure was swallowed in silence — viewers would sit
                 // on stale data with nothing logged and no fallback triggered.
                 try await channel.subscribeWithError()
-                for await _ in changes {
-                    try? await self.pullSnapshot(groupId: groupId, context: context)
+                await withTaskGroup(of: Void.self) { tasks in
+                    for changes in byGroup + [groupRow] {
+                        tasks.addTask { @MainActor in
+                            for await _ in changes {
+                                self.scheduleRealtimePull(groupId: groupId, context: context)
+                            }
+                        }
+                    }
                 }
             } catch {
                 #if DEBUG
@@ -438,6 +600,19 @@ final class GroupSyncService {
             }
         }
         realtimeTasks[groupId] = task
+    }
+
+    /// One admin push upserts every row in the group, which arrives here as a
+    /// change event per row. Pulling the whole snapshot once per event would be
+    /// dozens of identical pulls, so a burst collapses into one.
+    private func scheduleRealtimePull(groupId: UUID, context: ModelContext) {
+        guard pendingRealtimePulls.insert(groupId).inserted else { return }
+        Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            pendingRealtimePulls.remove(groupId)
+            guard realtimeTasks[groupId] != nil else { return }
+            try? await pullSnapshot(groupId: groupId, context: context)
+        }
     }
 
     func stopRealtimeSync(groupId: UUID) {

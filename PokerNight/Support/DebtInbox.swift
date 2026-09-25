@@ -76,9 +76,12 @@ enum DebtInbox {
 
     /// A transfer with no `SettlementPayment` row counts as unpaid — the row's
     /// absence means nobody has opened the settlement, not that it's settled.
+    /// Neither does a tick left over from a different amount: if the session
+    /// was edited since, "paid $40" says nothing about the new $55. (Opening
+    /// the settlement clears such ticks; this just doesn't wait for that.)
     private static func isPaid(_ transfer: Transfer, in session: Session) -> Bool {
-        session.settlementPayments.first {
-            $0.fromPlayer?.id == transfer.from.id && $0.toPlayer?.id == transfer.to.id
-        }?.isPaid ?? false
+        session.settlementPayments.contains {
+            $0.matches(transfer) && $0.amount == transfer.amount && $0.isPaid
+        }
     }
 }

@@ -25,6 +25,7 @@ enum SharedModelContainer {
         do {
             let container = try ModelContainer(for: schema, configurations: [configuration])
             backfillStableIDsIfNeeded(container: container)
+            backfillSettlementPaymentIDsIfNeeded(container: container)
             return container
         } catch {
             fatalError("Failed to create ModelContainer: \(error)")
@@ -55,6 +56,25 @@ enum SharedModelContainer {
             // Leave the flag unset so we retry on the next launch rather than
             // proceed with potentially colliding IDs.
             assertionFailure("Stable-ID backfill failed: \(error)")
+        }
+    }
+
+    /// Same problem, same fix, for `SettlementPayment.id` — added later, when
+    /// paid checkmarks started syncing to viewers. Its own flag, because stores
+    /// that already ran the pass above never looked at payments.
+    private static let didBackfillPaymentIDsKey = "didBackfillSettlementPaymentIDs.v1"
+
+    private static func backfillSettlementPaymentIDsIfNeeded(container: ModelContainer) {
+        let defaults = sharedDefaults ?? .standard
+        guard !defaults.bool(forKey: didBackfillPaymentIDsKey) else { return }
+
+        let context = ModelContext(container)
+        do {
+            for payment in try context.fetch(FetchDescriptor<SettlementPayment>()) { payment.id = UUID() }
+            if context.hasChanges { try context.save() }
+            defaults.set(true, forKey: didBackfillPaymentIDsKey)
+        } catch {
+            assertionFailure("Settlement payment ID backfill failed: \(error)")
         }
     }
 

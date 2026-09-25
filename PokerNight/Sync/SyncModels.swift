@@ -132,6 +132,27 @@ struct RemoteSessionEntry: Codable {
     }
 }
 
+/// A paid checkmark from the settlement screen (`0004_settlement_payments.sql`).
+struct RemoteSettlementPayment: Codable {
+    var id: UUID
+    var groupId: UUID
+    var sessionId: UUID
+    var fromPlayerId: UUID
+    var toPlayerId: UUID
+    var amount: Decimal
+    var isPaid: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case groupId = "group_id"
+        case sessionId = "session_id"
+        case fromPlayerId = "from_player_id"
+        case toPlayerId = "to_player_id"
+        case amount
+        case isPaid = "is_paid"
+    }
+}
+
 /// Param payload for the `join_group_with_code` RPC. The key must match the SQL
 /// function's argument name (`p_code`) exactly — see the note above on why it
 /// can't be derived from the property name.

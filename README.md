@@ -38,7 +38,8 @@ Re-run `xcodegen generate` any time `project.yml` changes or you add/remove sour
   from the live session or settlement screen
 - **Live session** — track rebuys per player, running pot total, haptic feedback on each buy-in, and
   seat latecomers: **Add a player** puts anyone not already at the table into the running game (new
-  faces included) with an editable starting buy-in
+  faces included) with an editable starting buy-in. A mis-tapped buy-in can be taken back from the
+  **Undo** bar that follows every add, or later via **Remove last buy-in** in the player's menu
 - **End session** — enter final cash-outs, with a live balance check against total buy-ins (and a
   success haptic when it balances) so a typo gets caught before you generate a payout. Each row also
   has a **count chips** button: punch in how many of each color a player has and it does the
@@ -62,7 +63,8 @@ Re-run `xcodegen generate` any time `project.yml` changes or you add/remove sour
 - **Card-based UI** — charcoal cards with a red left-edge accent across Groups, Session history,
   Sessions, and Stats, replacing the earlier stock `List` row look
 - **Group sharing** — an admin can publish a group to Supabase and share a join code; other
-  devices join as read-only viewers with pull-to-refresh and best-effort Realtime updates
+  devices join as read-only viewers with pull-to-refresh and best-effort Realtime updates. Paid
+  checkmarks sync too, so a viewer's Inbox clears as the organizer ticks payments off
 - **Invites** — an "Invite your friends" banner on the group screen opens a sheet with the join code
   as a tap-to-copy hero, the three steps the other person follows, and a one-tap invite message that
   carries the App Store link alongside the code
